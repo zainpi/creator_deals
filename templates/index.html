@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Creators Deal Finder</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🎯 Amazon Creators Deal Finder</h1>
+        <p>Real-time deal discovery using Creators API + Keepa + AI</p>
+    </header>
+
+    <div class="control-panel">
+        <div class="status">
+            <span id="status" class="status-badge">●</span>
+            <span id="status-text">Idle</span>
+        </div>
+        <div class="buttons">
+            <button class="btn btn-start" onclick="startScanner()">▶ Start</button>
+            <button class="btn btn-stop" onclick="stopScanner()">⏸ Stop</button>
+            <button class="btn btn-reset" onclick="resetStats()">↻ Reset</button>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Items Found</div>
+            <div class="stat-value" id="total_found">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Keepa Passed</div>
+            <div class="stat-value" id="keepa_passed">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">AI Passed</div>
+            <div class="stat-value" id="ai_passed">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Posted</div>
+            <div class="stat-value" id="discord_posted">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Scans</div>
+            <div class="stat-value" id="scan_count">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Last Scan</div>
+            <div class="stat-value" id="last_scan_time">-</div>
+        </div>
+    </div>
+
+    <!-- Settings box -->
+    <div class="filters-section">
+        <h2>⚙️ Settings</h2>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Pages to Search</label>
+                <input id="pages_to_search" type="number" value="1" min="1" max="50">
+            </div>
+            <div class="filter-group">
+                <label>Use Keepa</label>
+                <input id="use_keepa" type="checkbox" checked>
+            </div>
+            <div class="filter-group">
+                <label>Amazon Only</label>
+                <input id="amazon_only" type="checkbox">
+            </div>
+            <div class="filter-group">
+                <label>Keywords</label>
+                <input id="amazon_keywords" type="text" placeholder="e.g. clothes">
+            </div>
+            <button class="btn btn-secondary" onclick="saveConfig()">💾 Save Settings</button>
+        </div>
+    </div>
+
+    <!-- Filters box -->
+    <div class="filters-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <h2 style="margin:0;">🔎 Filters</h2>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.9em;cursor:pointer;">
+                <input id="apply_filters_server" type="checkbox">
+                Apply to new discoveries
+            </label>
+        </div>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Min Saving %</label>
+                <input id="min_saving" type="number" value="50" min="0" max="100">
+            </div>
+            <div class="filter-group">
+                <label>Max Price (€)</label>
+                <input id="max_price" type="number" value="450" min="0">
+            </div>
+            
+        </div>
+
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Min AI Score</label>
+                <input id="min_ai_score" type="number" value="3" min="1" max="10" step="0.1">
+            </div>
+            <div class="filter-group">
+                <label>Min Keepa Drop %</label>
+                <input id="min_keepa_drop" type="number" value="0" min="0" max="100">
+            </div>
+            <div class="filter-group">
+                <label>Min Rating</label>
+                <input id="min_rating" type="number" value="0" min="0" max="5" step="0.1">
+            </div>
+            <div class="filter-group">
+                <label>Min Review Count</label>
+                <input id="min_reviews" type="number" value="0" min="0">
+            </div>
+            <div class="filter-group">
+                <label>Min Seller Feedback %</label>
+                <input id="min_feedback" type="number" value="0" min="0" max="100">
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleTestPanel()" title="Click to toggle test scanner">
+            <span>🧪 Test Scanner (Multi-Page)</span>
+            <span id="test-toggle-indicator" style="font-size:0.8em;transition:transform 0.2s;">▾</span>
+        </h2>
+        <div id="test-controls" class="test-controls" style="display:none;">
+            <div class="test-controls-header">
+                <h3>Pagination & Filters</h3>
+            </div>
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Start Page</label>
+                    <input id="test_page_start" type="number" value="1" min="1" max="100">
+                </div>
+                <div class="filter-group">
+                    <label>End Page</label>
+                    <input id="test_page_end" type="number" value="3" min="1" max="100">
+                </div>
+                <div class="filter-group">
+                    <label>Marketplace</label>
+                    <select id="test_marketplace">
+                        <option value="GB">🇬🇧 UK</option>
+                        <option value="DE">🇩🇪 Germany</option>
+                        <option value="FR">🇫🇷 France</option>
+                        <option value="ES">🇪🇸 Spain</option>
+                        <option value="IT">🇮🇹 Italy</option>
+                    </select>
+                </div>
+                    <div class="filter-group">
+                        <label>Keywords</label>
+                        <input id="test_keywords" type="text" placeholder="e.g. headphones">
+                    </div>
+            </div>
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Min Saving %</label>
+                    <input id="test_min_saving" type="number" value="50" min="0" max="100">
+                </div>
+                <div class="filter-group">
+                    <label>Max Price (€)</label>
+                    <input id="test_max_price" type="number" value="450" min="0">
+                </div>
+                <div class="filter-group">
+                    <label>Min Keepa Drop %</label>
+                    <input id="test_min_drop" type="number" value="35" min="0" max="100">
+                </div>
+                <div class="filter-group">
+                    <label>Min Rating</label>
+                    <input id="test_min_rating" type="number" value="4.0" min="1" max="5" step="0.1">
+                </div>
+            </div>
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Min Review Count</label>
+                    <input id="test_min_reviews" type="number" value="10" min="0">
+                </div>
+                <div class="filter-group">
+                    <label>Min AI Score</label>
+                    <input id="test_min_ai_score" type="number" value="7" min="1" max="10" step="0.1">
+                </div>
+                <div class="filter-group checkbox">
+                    <input id="test_ai_enabled" type="checkbox" checked>
+                    <label for="test_ai_enabled">Use AI</label>
+                </div>
+                <div class="filter-group checkbox">
+                    <input id="test_use_keepa" type="checkbox" checked>
+                    <label for="test_use_keepa">Use Keepa</label>
+                </div>
+                <button class="btn btn-test" onclick="runTest()">🔍 Test Scan</button>
+            </div>
+        </div>
+        <div id="test-results" class="test-results" style="display:none;">
+            <h3>Test Results</h3>
+            <div id="test-stats" class="test-stats">
+                <div class="test-stat"><label>Items Found:</label> <span id="test_found">0</span></div>
+                <div class="test-stat"><label>Keepa Passed:</label> <span id="test_keepa">0</span></div>
+                <div class="test-stat"><label>AI Passed:</label> <span id="test_ai">0</span></div>
+                <div class="test-stat"><label>Pages:</label> <span id="test_pages">0</span></div>
+                <div class="test-stat"><label>Time:</label> <span id="test_time">0s</span></div>
+            </div>
+            <div id="test-errors" class="test-errors" style="display:none;">
+                <h4>Errors</h4>
+                <ul id="test-error-list"></ul>
+            </div>
+            <div id="test-items" class="products-grid"></div>
+        </div>
+    </div>
+
+    <div class="products-section">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <h2>📊 Recent Discoveries</h2>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                <label style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);cursor:pointer;">
+                    <input id="show_all_products" type="checkbox" checked onchange="updateView()">
+                    Show all products
+                </label>
+                <select id="sort-by" onchange="sortProducts()" style="padding:8px 12px; border-radius:4px; border:1px solid #667eea; background:#1a1a2e; color:#fff; cursor:pointer;">
+                    <option value="recent">Newest First</option>
+                    <option value="savings-high">Highest Savings %</option>
+                    <option value="savings-low">Lowest Savings %</option>
+                    <option value="price-low">Lowest Price</option>
+                    <option value="price-high">Highest Price</option>
+                </select>
+                <button class="btn btn-secondary" onclick="clearProducts()">🗑 Clear Discoveries</button>
+            </div>
+        </div>
+        <div id="products" class="products-grid">
+            <p class="loading">Loading products...</p>
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/app.js?v=7"></script>
+
+</body>
+</html>

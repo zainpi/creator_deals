@@ -1,0 +1,9 @@
+flask
+pyyaml
+requests
+aiohttp
+aiosqlite
+keepa
+openai
+discord-webhook
+python-dotenv

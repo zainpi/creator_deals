@@ -1,0 +1,133 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+try:
+    from discord_webhook import DiscordWebhook, DiscordEmbed
+except ImportError:
+    DiscordWebhook = None
+    DiscordEmbed = None
+
+
+class DiscordAlerts:
+    """Send deal alerts to Discord."""
+    
+    def __init__(self, webhook_url):
+        self.webhook_url = webhook_url
+        if not DiscordWebhook:
+            logger.warning("[DISCORD] discord-webhook not installed")
+
+    def send(self, product):
+        """Send product alert to Discord."""
+        
+        if not self.webhook_url:
+            logger.warning("[DISCORD] No webhook URL configured")
+            return False
+        
+        if not DiscordWebhook:
+            logger.warning("[DISCORD] discord-webhook not available")
+            return False
+
+        try:
+            webhook = DiscordWebhook(url=self.webhook_url)
+
+            embed = DiscordEmbed(
+                title=product.get("title", "Unknown")[:256],
+                color="03b2f8"
+            )
+
+            embed.add_embed_field(
+                name="🔗 ASIN",
+                value=product.get("asin", "N/A"),
+                inline=True
+            )
+
+            price_val = product.get("current_price")
+            price_str = f"€{price_val:.2f}" if isinstance(price_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="💶 Price",
+                value=price_str,
+                inline=True
+            )
+
+            savings_val = product.get("savings_percent")
+            savings_str = f"{int(savings_val)}%" if isinstance(savings_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="📊 Savings",
+                value=savings_str,
+                inline=True
+            )
+
+            drop_val = product.get("keepa_drop_percent")
+            drop_str = f"{float(drop_val):.0f}%" if isinstance(drop_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="📉 90d Drop",
+                value=drop_str,
+                inline=True
+            )
+
+            # Keepa 90d average price
+            avg90_val = product.get("keepa_avg_90")
+            avg90_str = f"€{float(avg90_val):.2f}" if isinstance(avg90_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="📈 90d Avg",
+                value=avg90_str,
+                inline=True
+            )
+
+            # Keepa sales rank and estimated monthly sold (if available)
+            rank_val = product.get("keepa_sales_rank")
+            rank_str = f"{int(rank_val):,}" if isinstance(rank_val, (int, float)) else "N/A"
+            sold_val = product.get("keepa_monthly_sold")
+            sold_str = f"{int(sold_val):,}" if isinstance(sold_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="🏷️ Rank",
+                value=rank_str,
+                inline=True
+            )
+            embed.add_embed_field(
+                name="📦 Monthly Sold",
+                value=sold_str,
+                inline=True
+            )
+
+            ai_val = product.get("ai_score")
+            ai_str = f"{float(ai_val):.1f}/10" if isinstance(ai_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="⭐ AI Score",
+                value=ai_str,
+                inline=True
+            )
+
+            embed.add_embed_field(
+                name="🏪 Seller",
+                value=product.get("seller_name", "Unknown"),
+                inline=False
+            )
+
+            embed.add_embed_field(
+                name="📂 Category",
+                value=product.get("category", "Unknown"),
+                inline=False
+            )
+
+            image = product.get("image")
+            if image:
+                embed.set_thumbnail(url=image)
+
+            tld_map = {"DE": "de", "GB": "co.uk", "UK": "co.uk", "FR": "fr", "IT": "it", "ES": "es"}
+            mk = str(product.get("marketplace", "DE")).upper()
+            tld = tld_map.get(mk, "de")
+            embed.set_url(
+                f"https://www.amazon.{tld}/dp/{product.get('asin', '')}"
+            )
+
+            webhook.add_embed(embed)
+            result = webhook.execute()
+            
+            logger.info(f"[DISCORD] Sent alert for {product.get('asin')}")
+            return True
+
+        except Exception as e:
+            logger.error(f"[DISCORD] Send failed: {e}")
+            return False
