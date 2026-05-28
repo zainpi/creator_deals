@@ -7,3 +7,4 @@ keepa
 openai
 discord-webhook
 python-dotenv
+gunicorn

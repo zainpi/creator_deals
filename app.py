@@ -334,8 +334,10 @@ if __name__ == "__main__":
         logger.error(f"[APP] Database init error: {e}")
 
     logger.info("[APP] Starting Creators Deal Finder")
+    # Bind to PORT for platforms like Heroku; default to 8888 for local
+    port = int(os.environ.get("PORT", 8888))
     app.run(
         host="0.0.0.0",
-        port=8888,
+        port=port,
         debug=False
     )
