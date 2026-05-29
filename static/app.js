@@ -184,6 +184,7 @@ async function refreshStats() {
         document.getElementById('ai_passed').textContent      = data.ai_passed      || 0;
         document.getElementById('discord_posted').textContent = data.discord_posted || 0;
         document.getElementById('scan_count').textContent     = data.scan_count     || 0;
+        document.getElementById('api_calls').textContent      = data.api_calls      || 0;
 
         if (data.last_scan_time) {
             document.getElementById('last_scan_time').textContent =

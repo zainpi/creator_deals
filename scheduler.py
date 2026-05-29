@@ -113,6 +113,7 @@ class DealScheduler:
             except Exception as e:
                 logger.error(f"[SCHEDULER] Marketplace {mk} error: {e}")
 
+        self.stats.api_calls = self.searcher.api_calls
         self.stats.log_summary()
 
     async def process_item(self, item):

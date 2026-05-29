@@ -17,6 +17,7 @@ class TestingStats:
         self.discord_posted = 0
         self.scan_count = 0
         self.last_scan_time = None
+        self.api_calls = 0
 
     def as_dict(self):
         """Return stats as dictionary."""
@@ -31,6 +32,7 @@ class TestingStats:
             "discord_posted": self.discord_posted,
             "scan_count": self.scan_count,
             "last_scan_time": self.last_scan_time,
+            "api_calls": self.api_calls,
         }
 
     def log_summary(self):

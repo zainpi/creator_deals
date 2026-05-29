@@ -85,6 +85,9 @@ class CreatorsSearch:
         # --- Keyword rotation state ---
         self._keyword_index: int = 0
 
+        # --- API call counter ---
+        self.api_calls: int = 0
+
         # Prefer catalog endpoint, then legacy variants
         self._search_endpoints = [
             "https://creatorsapi.amazon/catalog/v1/searchItems",
@@ -547,6 +550,7 @@ class CreatorsSearch:
         backoff = 2.0
         for attempt in range(3):
             try:
+                self.api_calls += 1
                 resp = requests.post(url, json=payload, headers=headers, timeout=30)
             except Exception as e:
                 print(f"[CREATORS] Request exception {url}: {e}")
