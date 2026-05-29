@@ -82,6 +82,13 @@ except Exception as e:
     logger.error(f"[APP] Failed to load config: {e}")
     config = _apply_env_overrides({})
 
+# Init DB at import time so gunicorn workers always have the schema ready
+try:
+    init_db()
+    logger.info("[APP] Database initialized")
+except Exception as e:
+    logger.error(f"[APP] Database init error: {e}")
+
 
 # ==================== Routes ====================
 

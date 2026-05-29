@@ -4,8 +4,19 @@ from datetime import datetime
 DB_PATH = "data/discovered_asins.db"
 
 
+def _migrate(conn):
+    """Drop and recreate discovered_products if it's missing the user_id column."""
+    c = conn.cursor()
+    c.execute("PRAGMA table_info('discovered_products')")
+    cols = [row[1] for row in c.fetchall()]
+    if cols and 'user_id' not in cols:
+        c.execute("DROP TABLE discovered_products")
+        conn.commit()
+
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
+    _migrate(conn)
     c = conn.cursor()
 
     # Per-user discoveries — PRIMARY KEY is (user_id, asin)
