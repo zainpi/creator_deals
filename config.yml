@@ -1,0 +1,68 @@
+# Creators Deal Finder configuration
+# Fill in credentials and tokens where marked. The app loads this at startup
+# and /api/config updates it on save from the dashboard.
+
+# Per‑marketplace Amazon Creators credentials
+affiliate_ids:
+  FR: pulsedeals0a-21
+  DE: pulse08-21
+  IT: pulse0d8b-21
+  ES: pulsedeals07-21
+  GB: pulsedeals04-21
+  UK: pulsedeals04-21
+  NL: pulse046-21
+  BE: pulse0dc-21
+
+# AI scoring
+ai:
+  minimum_score: 3
+  enabled: true
+
+# Amazon search defaults
+amazon:
+  marketplace: DE           # Default marketplace when testing
+  min_saving_percent: 50    # Filter threshold
+  max_price: 450            # Euros
+  sort_by: Featured         # Creators API sort key
+  keywords: clothes         # Comma/space-separated keywords
+  # Optional: restrict fulfillment (leave empty to omit)
+  # delivery_flags: ""      # e.g. PRIME, Fulfilled, AmazonGlobal (catalog enum)
+
+# Creators API options
+creators:
+  basic_mode: false          # Lenient mode (shows more results)
+  partner_tag: ""           # Optional override (otherwise derived from affiliate_ids)
+
+
+
+# Server-side filters used by scheduler
+filters:
+  blocked_categories:
+    - Grocery
+    - Books
+    - Audible
+    - PrimeVideo
+    - GiftCards
+  min_keepa_drop_percent: 0
+  min_rating: 0
+  min_review_count: 0
+  apply_to_new: false       # When true, apply filters to new discoveries before saving/posting
+
+# Keepa configuration
+keepa:
+  enabled: false
+
+# Scanner/runtime
+scanner:
+  creators_batch_delay: 1.5
+  keepa_batch_size: 100
+  max_parallel_requests: 5
+  pages_to_search: 5
+  scan_interval_seconds: 15
+  # Optional: explicit list of marketplaces to scan (defaults to DE,GB,FR,ES,IT)
+  # marketplaces: [DE, GB, FR, ES, IT]
+
+# Seller rules
+seller:
+  allow_amazon_only: false
+  min_feedback_percent: 90

@@ -20,14 +20,69 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
+def _upper_key(s: str) -> str:
+    return "".join(c if c.isalnum() else "_" for c in str(s)).upper()
+
+def _env(*names: str) -> str | None:
+    for n in names:
+        v = os.getenv(n)
+        if v is not None and str(v).strip() != "":
+            return v
+    return None
+
+def _apply_env_overrides(cfg: dict) -> dict:
+    cfg = cfg or {}
+
+    # Discord webhook
+    wh = _env("DISCORD_WEBHOOK", "DISCORD_WEBHOOK_URL")
+    if wh:
+        cfg.setdefault("discord", {})["webhook_url"] = wh
+
+    # Keepa
+    keepa_key = _env("KEEPA_API_KEY")
+    if keepa_key:
+        cfg.setdefault("keepa", {})["api_key"] = keepa_key
+    keepa_enabled = _env("KEEPA_ENABLED")
+    if keepa_enabled is not None:
+        try:
+            cfg.setdefault("keepa", {})["enabled"] = str(keepa_enabled).lower() in ("1", "true", "yes", "on")
+        except Exception:
+            pass
+
+    # Apify
+    apify = _env("APIFY_API_TOKEN")
+    if apify:
+        cfg["apify_api_token"] = apify
+
+    # Creators credentials per marketplace section (Amazon_DE, Amazon_GB, ...)
+    for k, v in list(cfg.items()):
+        try:
+            if not (isinstance(k, str) and k.startswith("Amazon_")):
+                continue
+            section = cfg.get(k) or {}
+            up = _upper_key(k)  # e.g., AMAZON_DE
+            # For each known field, allow env override like AMAZON_DE_CREDENTIAL_ID
+            for field in ("Application", "Application_Id", "Credential_Id", "Secret"):
+                env_name = f"{up}_{_upper_key(field)}"
+                ev = _env(env_name)
+                if ev:
+                    section[field] = ev
+            cfg[k] = section
+        except Exception:
+            continue
+
+    return cfg
+
 # Load config
 try:
     with open("config.yml", "r") as f:
-        config = yaml.safe_load(f)
-    logger.info("[APP] Config loaded from config.yml")
+        config = yaml.safe_load(f) or {}
+    # Apply environment overrides for secrets
+    config = _apply_env_overrides(config)
+    logger.info("[APP] Config loaded from config.yml with env overrides")
 except Exception as e:
     logger.error(f"[APP] Failed to load config: {e}")
-    config = {}
+    config = _apply_env_overrides({})
 
 # Initialize components
 stats = TestingStats()
