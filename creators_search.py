@@ -1,3 +1,4 @@
+import os
 import requests
 import time
 from collections import deque
@@ -98,10 +99,37 @@ class CreatorsSearch:
     def _load_credentials(self):
         marketplace_key = f"Amazon_{self.marketplace}"
         creds = self.config.get(marketplace_key, {})
-        self.application    = creds.get("Application")
-        self.application_id = creds.get("Application_Id")
-        self.credential_id  = creds.get("Credential_Id")
-        self.secret         = creds.get("Secret")
+
+        def env_or_config(field: str, *generic_names: str) -> str | None:
+            marketplace_env = f"{marketplace_key}_{field}".upper()
+            marketplace_env = "".join(c if c.isalnum() else "_" for c in marketplace_env)
+            for name in (marketplace_env, *generic_names):
+                value = os.getenv(name)
+                if value is not None and value.strip():
+                    return value
+            return creds.get(field)
+
+        self.application = env_or_config(
+            "Application",
+            "CREATORS_APPLICATION",
+            "AMAZON_CREATORS_APPLICATION",
+        )
+        self.application_id = env_or_config(
+            "Application_Id",
+            "CREATORS_APPLICATION_ID",
+            "AMAZON_CREATORS_APPLICATION_ID",
+        )
+        self.credential_id = env_or_config(
+            "Credential_Id",
+            "CREATORS_CREDENTIAL_ID",
+            "AMAZON_CREATORS_CREDENTIAL_ID",
+        )
+        self.secret = env_or_config(
+            "Secret",
+            "CREATORS_SECRET",
+            "CREATORS_CLIENT_SECRET",
+            "AMAZON_CREATORS_SECRET",
+        )
 
     # =========================================================================
     # OAuth — token caching
@@ -153,7 +181,11 @@ class CreatorsSearch:
             return self._token, self._token_version  # type: ignore[return-value]
 
         if not self.credential_id or not self.secret:
-            raise RuntimeError("Missing Amazon Credential_Id/Secret in config")
+            raise RuntimeError(
+                "Missing Amazon Creators credentials. Set "
+                f"{self.marketplace} config values or env vars like "
+                f"AMAZON_{self.marketplace}_CREDENTIAL_ID and AMAZON_{self.marketplace}_SECRET."
+            )
 
         token = self._get_token_v3(self.credential_id, self.secret)
         if token:
