@@ -8,9 +8,11 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
+    # Per-user discoveries — PRIMARY KEY is (user_id, asin)
     c.execute('''
         CREATE TABLE IF NOT EXISTS discovered_products (
-            asin TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            asin TEXT NOT NULL,
             title TEXT,
             marketplace TEXT,
             current_price REAL,
@@ -26,32 +28,37 @@ def init_db():
             page_found INTEGER,
             first_seen TEXT,
             last_seen TEXT,
-            posted INTEGER DEFAULT 0
+            posted INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, asin)
         )
     ''')
 
-    # Backfill/migrate: add missing columns if table existed before
-    try:
-        c.execute("PRAGMA table_info('discovered_products')")
-        cols = [row[1] for row in c.fetchall()]
-        if 'image' not in cols:
-            c.execute("ALTER TABLE discovered_products ADD COLUMN image TEXT")
-        if 'page_found' not in cols:
-            c.execute("ALTER TABLE discovered_products ADD COLUMN page_found INTEGER")
-    except Exception:
-        pass
+    # Per-user search preferences
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            user_id TEXT PRIMARY KEY,
+            keywords TEXT,
+            marketplaces TEXT,
+            min_saving INTEGER,
+            max_price REAL,
+            pages INTEGER,
+            sort_by TEXT,
+            updated_at TEXT
+        )
+    ''')
 
     conn.commit()
     conn.close()
 
 
-def asin_exists(asin):
+def asin_exists(user_id, asin):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-
-    c.execute("SELECT asin FROM discovered_products WHERE asin=?", (asin,))
+    c.execute(
+        "SELECT asin FROM discovered_products WHERE user_id=? AND asin=?",
+        (user_id, asin),
+    )
     result = c.fetchone()
-
     conn.close()
     return result is not None
 
@@ -59,9 +66,9 @@ def asin_exists(asin):
 def insert_product(product):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-
     c.execute('''
         INSERT OR REPLACE INTO discovered_products (
+            user_id,
             asin,
             title,
             marketplace,
@@ -79,8 +86,9 @@ def insert_product(product):
             first_seen,
             last_seen,
             posted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
+        product["user_id"],
         product["asin"],
         product.get("title"),
         product.get("marketplace"),
@@ -97,62 +105,91 @@ def insert_product(product):
         product.get("page_found"),
         product.get("first_seen", datetime.utcnow().isoformat()),
         datetime.utcnow().isoformat(),
-        int(product.get("posted", False))
+        int(product.get("posted", False)),
     ))
-
     conn.commit()
     conn.close()
 
 
-def get_all_products():
-    """Get all discovered products for dashboard."""
+def get_products_for_user(user_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
-    c.execute("SELECT * FROM discovered_products ORDER BY last_seen DESC")
+    c.execute(
+        "SELECT * FROM discovered_products WHERE user_id=? ORDER BY last_seen DESC",
+        (user_id,),
+    )
     columns = [desc[0] for desc in c.description]
     rows = c.fetchall()
-    
     conn.close()
-    
     return [dict(zip(columns, row)) for row in rows]
 
 
-def get_stats():
-    """Get discovery stats."""
+def get_stats_for_user(user_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
-    c.execute("SELECT COUNT(*) as total FROM discovered_products")
+    c.execute(
+        "SELECT COUNT(*) FROM discovered_products WHERE user_id=?",
+        (user_id,),
+    )
     total = c.fetchone()[0]
-    
-    c.execute("SELECT COUNT(*) as posted FROM discovered_products WHERE posted=1")
+    c.execute(
+        "SELECT COUNT(*) FROM discovered_products WHERE user_id=? AND posted=1",
+        (user_id,),
+    )
     posted = c.fetchone()[0]
-    
     conn.close()
-    
-    return {
-        "total_discovered": total,
-        "total_posted": posted
-    }
+    return {"total_discovered": total, "total_posted": posted}
 
 
-def clear_all_products():
+def clear_products_for_user(user_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("DELETE FROM discovered_products")
+    c.execute("DELETE FROM discovered_products WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_user_preferences(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM user_preferences WHERE user_id=?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return {}
+    columns = ["user_id", "keywords", "marketplaces", "min_saving", "max_price", "pages", "sort_by", "updated_at"]
+    return dict(zip(columns, row))
+
+
+def save_user_preferences(user_id, prefs):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        INSERT OR REPLACE INTO user_preferences
+            (user_id, keywords, marketplaces, min_saving, max_price, pages, sort_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        user_id,
+        prefs.get("keywords", ""),
+        prefs.get("marketplaces", "DE"),
+        prefs.get("min_saving", 50),
+        prefs.get("max_price", 450),
+        prefs.get("pages", 1),
+        prefs.get("sort_by", "Featured"),
+        datetime.utcnow().isoformat(),
+    ))
     conn.commit()
     conn.close()
 
 
 def reset_db():
-    """Drop and recreate the discovered_products table to refresh schema."""
+    """Drop and recreate all tables (schema reset)."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
         c.execute("DROP TABLE IF EXISTS discovered_products")
+        c.execute("DROP TABLE IF EXISTS user_preferences")
         conn.commit()
     finally:
         conn.close()
-    # Recreate
     init_db()

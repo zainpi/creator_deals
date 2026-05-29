@@ -11,101 +11,72 @@
 <div class="container">
     <header>
         <h1>🎯 Amazon Creators Deal Finder</h1>
-        <p>Real-time deal discovery using Creators API + Keepa + AI</p>
+        <p>Search Amazon for deals with your own keywords — results are saved just for you</p>
     </header>
 
+    <!-- Search panel -->
     <div class="control-panel">
-        <div class="status">
-            <span id="status" class="status-badge">●</span>
-            <span id="status-text">Idle</span>
+        <div class="search-row">
+            <div class="filter-group" style="flex:1; min-width:200px;">
+                <label>Keywords</label>
+                <input id="amazon_keywords" type="text" placeholder="e.g. gaming laptop, headphones" style="width:100%;">
+            </div>
+            <div class="filter-group">
+                <label>Pages per market</label>
+                <input id="pages_to_search" type="number" value="1" min="1" max="20" style="width:80px;">
+            </div>
+            <div class="filter-group">
+                <label>Min Saving %</label>
+                <input id="min_saving" type="number" value="50" min="0" max="100" style="width:80px;">
+            </div>
+            <div class="filter-group">
+                <label>Max Price (€/£)</label>
+                <input id="max_price" type="number" value="450" min="0" style="width:90px;">
+            </div>
         </div>
-        <div class="buttons">
-            <button class="btn btn-start" onclick="startScanner()">▶ Start</button>
-            <button class="btn btn-stop" onclick="stopScanner()">⏸ Stop</button>
-            <button class="btn btn-reset" onclick="resetStats()">↻ Reset</button>
+        <div class="search-row" style="margin-top:10px; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div class="filter-group">
+                <label style="display:block; margin-bottom:4px;">Marketplaces</label>
+                <div class="marketplace-checks">
+                    <label><input type="checkbox" name="marketplace" value="DE" checked> 🇩🇪 DE</label>
+                    <label><input type="checkbox" name="marketplace" value="GB"> 🇬🇧 GB</label>
+                    <label><input type="checkbox" name="marketplace" value="FR"> 🇫🇷 FR</label>
+                    <label><input type="checkbox" name="marketplace" value="ES"> 🇪🇸 ES</label>
+                    <label><input type="checkbox" name="marketplace" value="IT"> 🇮🇹 IT</label>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-end; margin-left:auto;">
+                <button class="btn btn-secondary" onclick="savePreferences()">💾 Save</button>
+                <button class="btn btn-start" id="search-btn" onclick="runSearch()">🔍 Search</button>
+                <button class="btn btn-reset" onclick="clearProducts()">🗑 Clear</button>
+            </div>
         </div>
+        <div id="search-status" style="margin-top:8px; font-size:0.85em; color:#aaa; min-height:18px;"></div>
     </div>
 
+    <!-- Stats -->
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-label">Items Found</div>
-            <div class="stat-value" id="total_found">0</div>
+            <div class="stat-label">My Discoveries</div>
+            <div class="stat-value" id="total_discovered">0</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">Keepa Passed</div>
-            <div class="stat-value" id="keepa_passed">0</div>
+            <div class="stat-label">Posted to Discord</div>
+            <div class="stat-value" id="total_posted">0</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-label">AI Passed</div>
-            <div class="stat-value" id="ai_passed">0</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Posted</div>
-            <div class="stat-value" id="discord_posted">0</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Scans</div>
-            <div class="stat-value" id="scan_count">0</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Last Scan</div>
-            <div class="stat-value" id="last_scan_time">-</div>
-        </div>
-        <div class="stat-card" title="Total Amazon Creators API requests sent">
+        <div class="stat-card" title="Total Amazon Creators API requests sent this session">
             <div class="stat-label">API Calls</div>
             <div class="stat-value" id="api_calls">0</div>
         </div>
     </div>
 
-    <!-- Settings box -->
+    <!-- Display filters -->
     <div class="filters-section">
-        <h2>⚙️ Settings</h2>
-        <div class="filter-row">
-            <div class="filter-group">
-                <label>Pages to Search</label>
-                <input id="pages_to_search" type="number" value="1" min="1" max="50">
-            </div>
-            <div class="filter-group">
-                <label>Use Keepa</label>
-                <input id="use_keepa" type="checkbox" checked>
-            </div>
-            <div class="filter-group">
-                <label>Amazon Only</label>
-                <input id="amazon_only" type="checkbox">
-            </div>
-            <div class="filter-group">
-                <label>Keywords</label>
-                <input id="amazon_keywords" type="text" placeholder="e.g. clothes">
-            </div>
-            <button class="btn btn-secondary" onclick="saveConfig()">💾 Save Settings</button>
-        </div>
-    </div>
-
-    <!-- Filters box -->
-    <div class="filters-section">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <h2 style="margin:0;">🔎 Filters</h2>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.9em;cursor:pointer;">
-                <input id="apply_filters_server" type="checkbox">
-                Apply to new discoveries
-            </label>
-        </div>
-        <div class="filter-row">
-            <div class="filter-group">
-                <label>Min Saving %</label>
-                <input id="min_saving" type="number" value="50" min="0" max="100">
-            </div>
-            <div class="filter-group">
-                <label>Max Price (€)</label>
-                <input id="max_price" type="number" value="450" min="0">
-            </div>
-            
-        </div>
-
+        <h2>🔎 Display Filters</h2>
         <div class="filter-row">
             <div class="filter-group">
                 <label>Min AI Score</label>
-                <input id="min_ai_score" type="number" value="3" min="1" max="10" step="0.1">
+                <input id="min_ai_score" type="number" value="0" min="0" max="10" step="0.1">
             </div>
             <div class="filter-group">
                 <label>Min Keepa Drop %</label>
@@ -116,7 +87,7 @@
                 <input id="min_rating" type="number" value="0" min="0" max="5" step="0.1">
             </div>
             <div class="filter-group">
-                <label>Min Review Count</label>
+                <label>Min Reviews</label>
                 <input id="min_reviews" type="number" value="0" min="0">
             </div>
             <div class="filter-group">
@@ -126,6 +97,7 @@
         </div>
     </div>
 
+    <!-- Test Scanner -->
     <div class="test-section">
         <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleTestPanel()" title="Click to toggle test scanner">
             <span>🧪 Test Scanner (Multi-Page)</span>
@@ -133,7 +105,7 @@
         </h2>
         <div id="test-controls" class="test-controls" style="display:none;">
             <div class="test-controls-header">
-                <h3>Pagination & Filters</h3>
+                <h3>Pagination &amp; Filters</h3>
             </div>
             <div class="test-filter-row">
                 <div class="filter-group">
@@ -154,10 +126,10 @@
                         <option value="IT">🇮🇹 Italy</option>
                     </select>
                 </div>
-                    <div class="filter-group">
-                        <label>Keywords</label>
-                        <input id="test_keywords" type="text" placeholder="e.g. headphones">
-                    </div>
+                <div class="filter-group">
+                    <label>Keywords</label>
+                    <input id="test_keywords" type="text" placeholder="e.g. headphones">
+                </div>
             </div>
             <div class="test-filter-row">
                 <div class="filter-group">
@@ -214,32 +186,31 @@
         </div>
     </div>
 
+    <!-- Results -->
     <div class="products-section">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-            <h2>📊 Recent Discoveries</h2>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                <label style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);cursor:pointer;">
-                    <input id="show_all_products" type="checkbox" checked onchange="updateView()">
-                    Show all products
-                </label>
+            <h2>📊 My Discoveries</h2>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <input id="filter-input" type="text" placeholder="Filter by title, ASIN…" oninput="filterProducts()" style="padding:7px 10px;border-radius:4px;border:1px solid #667eea;background:#1a1a2e;color:#fff;width:180px;">
                 <select id="sort-by" onchange="sortProducts()" style="padding:8px 12px; border-radius:4px; border:1px solid #667eea; background:#1a1a2e; color:#fff; cursor:pointer;">
                     <option value="recent">Newest First</option>
                     <option value="savings-high">Highest Savings %</option>
                     <option value="savings-low">Lowest Savings %</option>
                     <option value="price-low">Lowest Price</option>
                     <option value="price-high">Highest Price</option>
+                    <option value="ai-score">AI Score</option>
+                    <option value="keepa-drop">Keepa Drop</option>
                 </select>
-                <button class="btn btn-secondary" onclick="clearProducts()">🗑 Clear Discoveries</button>
             </div>
         </div>
         <div id="products" class="products-grid">
-            <p class="loading">Loading products...</p>
+            <p class="loading">Run a search to see your results here.</p>
         </div>
     </div>
 
 </div>
 
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=8"></script>
 
 </body>
 </html>
