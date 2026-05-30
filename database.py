@@ -5,12 +5,20 @@ DB_PATH = "data/discovered_asins.db"
 
 
 def _migrate(conn):
-    """Drop and recreate discovered_products if it's missing the user_id column."""
+    """Migrate discovered_products schema as needed."""
     c = conn.cursor()
     c.execute("PRAGMA table_info('discovered_products')")
     cols = [row[1] for row in c.fetchall()]
-    if cols and 'user_id' not in cols:
+    if not cols:
+        return  # table doesn't exist yet, init_db will create it
+    if 'user_id' not in cols:
+        # Old schema without user_id — must drop and recreate (can't change PK)
         c.execute("DROP TABLE discovered_products")
+        conn.commit()
+        return
+    # Add any missing columns to existing schema
+    if 'seller_rating' not in cols:
+        c.execute("ALTER TABLE discovered_products ADD COLUMN seller_rating REAL")
         conn.commit()
 
 
@@ -37,6 +45,7 @@ def init_db():
             ai_score REAL,
             ai_reason TEXT,
             page_found INTEGER,
+            seller_rating REAL,
             first_seen TEXT,
             last_seen TEXT,
             posted INTEGER DEFAULT 0,
@@ -54,6 +63,12 @@ def init_db():
             max_price REAL,
             pages INTEGER,
             sort_by TEXT,
+            use_filters INTEGER DEFAULT 1,
+            f_min_saving INTEGER DEFAULT 0,
+            f_min_ai_score REAL DEFAULT 0,
+            f_min_seller_rating REAL DEFAULT 0,
+            f_min_price REAL DEFAULT 0,
+            f_max_price REAL DEFAULT 0,
             updated_at TEXT
         )
     ''')
@@ -94,10 +109,11 @@ def insert_product(product):
             ai_score,
             ai_reason,
             page_found,
+            seller_rating,
             first_seen,
             last_seen,
             posted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         product["user_id"],
         product["asin"],
@@ -114,6 +130,7 @@ def insert_product(product):
         product.get("ai_score"),
         product.get("ai_reason"),
         product.get("page_found"),
+        product.get("seller_rating"),
         product.get("first_seen", datetime.utcnow().isoformat()),
         datetime.utcnow().isoformat(),
         int(product.get("posted", False)),
@@ -177,8 +194,10 @@ def save_user_preferences(user_id, prefs):
     c = conn.cursor()
     c.execute('''
         INSERT OR REPLACE INTO user_preferences
-            (user_id, keywords, marketplaces, min_saving, max_price, pages, sort_by, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, keywords, marketplaces, min_saving, max_price, pages, sort_by,
+             use_filters, f_min_saving, f_min_ai_score, f_min_seller_rating,
+             f_min_price, f_max_price, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         user_id,
         prefs.get("keywords", ""),
@@ -187,6 +206,12 @@ def save_user_preferences(user_id, prefs):
         prefs.get("max_price", 450),
         prefs.get("pages", 1),
         prefs.get("sort_by", "Featured"),
+        int(prefs.get("use_filters", True)),
+        prefs.get("f_min_saving", 0),
+        prefs.get("f_min_ai_score", 0),
+        prefs.get("f_min_seller_rating", 0),
+        prefs.get("f_min_price", 0),
+        prefs.get("f_max_price", 0),
         datetime.utcnow().isoformat(),
     ))
     conn.commit()

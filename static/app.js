@@ -42,9 +42,11 @@ function renderProducts(products) {
         const drop      = hasDrop ? `${parseFloat(p.keepa_drop_percent).toFixed(0)}%` : 'N/A';
         const hasAvg90  = p.keepa_avg_90 !== null && p.keepa_avg_90 !== undefined && !isNaN(p.keepa_avg_90);
         const avg90     = hasAvg90 ? `€${parseFloat(p.keepa_avg_90).toFixed(2)}` : null;
-        const score     = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(1)}/10` : 'N/A';
-        const seller    = p.seller_name || 'Unknown';
-        const posted    = p.posted ? '✅' : '❌';
+        const score      = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(1)}/10` : 'N/A';
+        const seller     = p.seller_name || 'Unknown';
+        const posted     = p.posted ? '✅' : '❌';
+        const hasRating  = p.seller_rating !== null && p.seller_rating !== undefined && !isNaN(p.seller_rating);
+        const sellerRating = hasRating ? `${parseFloat(p.seller_rating).toFixed(0)}%` : null;
         const image     = p.image ? `<img src="${p.image}" alt="${asin}">` : '';
         const tld       = tldMap[p.marketplace]  || 'de';
         const flag      = flagMap[p.marketplace] || '🌍';
@@ -71,15 +73,17 @@ function renderProducts(products) {
                         <span class="market-flag" title="Marketplace">${flag}</span>
                     </div>
                     <div class="product-title" title="${(p.title || '').replace(/"/g, '&quot;')}">${title}</div>
-                    <div class="product-seller" title="Seller">Seller: ${seller}</div>
+                    <div class="product-seller" title="Seller">
+                        ${seller}${sellerRating ? ` <span class="seller-rating" title="Seller positive feedback %">⭐ ${sellerRating}</span>` : ''}
+                    </div>
                     <div class="product-category" title="Category">Category: ${p.category || 'Unknown'}</div>
                     <div class="product-metrics">
-                        <span class="metric" title="Price">💶 ${origPriceHtml ? origPriceHtml + ' → ' : ''}${hasPrice ? price : 'N/A'}</span>
+                        <span class="metric" title="Current price">💶 ${origPriceHtml ? origPriceHtml + ' → ' : ''}${hasPrice ? price : 'N/A'}</span>
+                        ${hasAvg90 ? `<span class="metric metric-avg" title="Keepa 90-day average price">📈 ${avg90} avg</span>` : ''}
                         ${hasSavings ? `<span class="metric" title="Savings">📊 ${savings} off</span>` : ''}
-                        ${hasAvg90 ? `<span class="metric" title="90-day avg">📈 ~${avg90}</span>` : ''}
-                        <span class="metric" title="Keepa drop">📉 ${drop} drop</span>
-                        ${pageFound !== null ? `<span class="metric" title="Search page found on">🗂 Page ${pageFound}</span>` : ''}
+                        ${hasDrop ? `<span class="metric" title="Drop from 90d avg">📉 ${drop} drop</span>` : ''}
                         <span class="metric" title="AI score${p.ai_reason ? ' — ' + String(p.ai_reason).substring(0, 80) : ''}">⭐ ${score}</span>
+                        ${pageFound !== null ? `<span class="metric" title="Search page">🗂 p${pageFound}</span>` : ''}
                         <span class="metric posted" title="Posted to Discord">${posted}</span>
                     </div>
                 </div>
@@ -118,17 +122,20 @@ function applyFilter(products, query) {
 }
 
 function applyDisplayFilters(products) {
-    const minAIScore  = parseFloat(document.getElementById('min_ai_score')?.value  || '0');
-    const minKeepa    = parseFloat(document.getElementById('min_keepa_drop')?.value || '0');
-    const minRating   = parseFloat(document.getElementById('min_rating')?.value     || '0');
-    const minReviews  = parseFloat(document.getElementById('min_reviews')?.value    || '0');
+    if (!document.getElementById('use_filters')?.checked) return products;
+
+    const minSaving   = parseFloat(document.getElementById('f_min_saving')?.value        || '0');
+    const minAI       = parseFloat(document.getElementById('f_min_ai_score')?.value       || '0');
+    const minSeller   = parseFloat(document.getElementById('f_min_seller_rating')?.value  || '0');
+    const minPrice    = parseFloat(document.getElementById('f_min_price')?.value          || '0');
+    const maxPrice    = parseFloat(document.getElementById('f_max_price')?.value          || '0');
 
     return products.filter(p => {
-        if (typeof p.ai_score === 'number' && minAIScore > 0 && p.ai_score < minAIScore) return false;
-        if (!isNaN(minKeepa) && minKeepa > 0) {
-            const kd = Number(p.keepa_drop_percent);
-            if (isNaN(kd) || kd < minKeepa) return false;
-        }
+        if (minSaving > 0 && (p.savings_percent == null || p.savings_percent < minSaving)) return false;
+        if (minAI > 0 && (typeof p.ai_score !== 'number' || p.ai_score < minAI)) return false;
+        if (minSeller > 0 && (p.seller_rating == null || p.seller_rating < minSeller)) return false;
+        if (minPrice > 0 && (p.current_price == null || p.current_price < minPrice)) return false;
+        if (maxPrice > 0 && (p.current_price == null || p.current_price > maxPrice)) return false;
         return true;
     });
 }
@@ -185,12 +192,11 @@ async function runSearch() {
     const btn = document.getElementById('search-btn');
     const statusEl = document.getElementById('search-status');
 
-    const keywords = (document.getElementById('amazon_keywords')?.value || '').trim();
-    const pages    = parseInt(document.getElementById('pages_to_search')?.value || '1');
-    const minSave  = parseInt(document.getElementById('min_saving')?.value || '50');
-    const maxPrice = parseFloat(document.getElementById('max_price')?.value || '450');
-    const checked  = [...document.querySelectorAll('input[name="marketplace"]:checked')];
-    const markets  = checked.map(el => el.value);
+    const keywords   = (document.getElementById('amazon_keywords')?.value || '').trim();
+    const pages      = parseInt(document.getElementById('pages_to_search')?.value || '1');
+    const checked    = [...document.querySelectorAll('input[name="marketplace"]:checked')];
+    const markets    = checked.map(el => el.value);
+    const useFilters = !!document.getElementById('use_filters')?.checked;
 
     if (markets.length === 0) {
         statusEl.textContent = '⚠️ Select at least one marketplace.';
@@ -206,12 +212,17 @@ async function runSearch() {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
-                user_id:     getUserId(),
+                user_id:      getUserId(),
                 keywords,
                 marketplaces: markets,
                 pages,
-                min_saving:  minSave,
-                max_price:   maxPrice,
+                sort_by:      document.getElementById('sort_by')?.value || 'Featured',
+                use_filters:  useFilters,
+                f_min_saving:        parseFloat(document.getElementById('f_min_saving')?.value       || '0'),
+                f_min_ai_score:      parseFloat(document.getElementById('f_min_ai_score')?.value      || '0'),
+                f_min_seller_rating: parseFloat(document.getElementById('f_min_seller_rating')?.value || '0'),
+                f_min_price:         parseFloat(document.getElementById('f_min_price')?.value         || '0'),
+                f_max_price:         parseFloat(document.getElementById('f_max_price')?.value         || '0'),
             }),
         });
         const data = await res.json();
@@ -263,12 +274,17 @@ async function savePreferences() {
     const markets = checked.map(el => el.value).join(',');
 
     const prefs = {
-        user_id:    getUserId(),
-        keywords:   document.getElementById('amazon_keywords')?.value  || '',
+        user_id:      getUserId(),
+        keywords:     document.getElementById('amazon_keywords')?.value || '',
         marketplaces: markets,
-        min_saving: parseInt(document.getElementById('min_saving')?.value  || '50'),
-        max_price:  parseFloat(document.getElementById('max_price')?.value || '450'),
-        pages:      parseInt(document.getElementById('pages_to_search')?.value || '1'),
+        pages:        parseInt(document.getElementById('pages_to_search')?.value || '1'),
+        sort_by:      document.getElementById('sort_by')?.value || 'Featured',
+        use_filters:  !!document.getElementById('use_filters')?.checked,
+        f_min_saving:        parseFloat(document.getElementById('f_min_saving')?.value        || '0'),
+        f_min_ai_score:      parseFloat(document.getElementById('f_min_ai_score')?.value       || '0'),
+        f_min_seller_rating: parseFloat(document.getElementById('f_min_seller_rating')?.value  || '0'),
+        f_min_price:         parseFloat(document.getElementById('f_min_price')?.value          || '0'),
+        f_max_price:         parseFloat(document.getElementById('f_max_price')?.value          || '0'),
     };
 
     try {
@@ -294,14 +310,24 @@ async function loadPreferences() {
         const p = await res.json();
         if (!p || !Object.keys(p).length) return;
 
-        if (p.keywords   !== undefined && document.getElementById('amazon_keywords'))
+        if (p.keywords !== undefined && document.getElementById('amazon_keywords'))
             document.getElementById('amazon_keywords').value = p.keywords;
-        if (p.min_saving !== undefined && document.getElementById('min_saving'))
-            document.getElementById('min_saving').value = p.min_saving;
-        if (p.max_price  !== undefined && document.getElementById('max_price'))
-            document.getElementById('max_price').value = p.max_price;
-        if (p.pages      !== undefined && document.getElementById('pages_to_search'))
+        if (p.pages !== undefined && document.getElementById('pages_to_search'))
             document.getElementById('pages_to_search').value = p.pages;
+        if (p.sort_by && document.getElementById('sort_by'))
+            document.getElementById('sort_by').value = p.sort_by;
+        if (p.use_filters !== undefined && document.getElementById('use_filters'))
+            document.getElementById('use_filters').checked = !!p.use_filters;
+        if (p.f_min_saving        != null && document.getElementById('f_min_saving'))
+            document.getElementById('f_min_saving').value = p.f_min_saving;
+        if (p.f_min_ai_score      != null && document.getElementById('f_min_ai_score'))
+            document.getElementById('f_min_ai_score').value = p.f_min_ai_score;
+        if (p.f_min_seller_rating != null && document.getElementById('f_min_seller_rating'))
+            document.getElementById('f_min_seller_rating').value = p.f_min_seller_rating;
+        if (p.f_min_price         != null && document.getElementById('f_min_price'))
+            document.getElementById('f_min_price').value = p.f_min_price;
+        if (p.f_max_price         != null && document.getElementById('f_max_price'))
+            document.getElementById('f_max_price').value = p.f_max_price;
 
         if (p.marketplaces) {
             const saved = p.marketplaces.split(',').map(m => m.trim().toUpperCase());

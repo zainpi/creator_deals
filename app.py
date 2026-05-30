@@ -165,12 +165,29 @@ def api_search():
     min_saving = int(data.get("min_saving", config.get("amazon", {}).get("min_saving_percent", 50)))
     max_price = float(data.get("max_price", config.get("amazon", {}).get("max_price", 450)))
 
+    # Creators API sortBy — validate against the supported set
+    VALID_SORT = {"Featured", "Price:LowToHigh", "Price:HighToLow", "AvgCustomerReviews", "NewestArrivals"}
+    sort_by = str(data.get("sort_by") or config.get("amazon", {}).get("sort_by") or "Featured").strip()
+    if sort_by not in VALID_SORT:
+        sort_by = "Featured"
+
+    filters = {
+        "use_filters":       bool(data.get("use_filters", True)),
+        "min_saving":        int(data.get("f_min_saving", 0)),
+        "min_ai_score":      float(data.get("f_min_ai_score", 0)),
+        "min_seller_rating": float(data.get("f_min_seller_rating", 0)),
+        "min_price":         float(data.get("f_min_price", 0)),
+        "max_price":         float(data.get("f_max_price", 0)),
+    }
+
     # Build per-request config inheriting server defaults
     search_config = dict(config)
     search_config["amazon"] = dict(config.get("amazon", {}))
     search_config["amazon"]["keywords"] = keywords
     search_config["amazon"]["min_saving_percent"] = min_saving
     search_config["amazon"]["max_price"] = max_price
+    # Make the user's sortBy authoritative (overrides the server default in search_items)
+    search_config["amazon"]["sort_by"] = sort_by
 
     try:
         stats = TestingStats()
@@ -182,6 +199,8 @@ def api_search():
             pages=pages,
             min_saving=min_saving,
             max_price=max_price,
+            filters=filters,
+            sort_by=sort_by,
         )
         return jsonify({
             "success": True,

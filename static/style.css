@@ -47,14 +47,99 @@ header p {
 /* ==================== Control Panel ==================== */
 
 .control-panel {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: block;
     margin-bottom: 40px;
-    padding: 20px;
+    padding: 20px 24px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.search-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+}
+
+.marketplace-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.marketplace-checks label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9em;
+    color: #e0e0e0;
+    cursor: pointer;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.marketplace-checks label:hover {
+    background: rgba(0, 212, 255, 0.1);
+    border-color: rgba(0, 212, 255, 0.4);
+}
+
+.marketplace-checks input[type="checkbox"] {
+    accent-color: #00d4ff;
+    width: 14px;
+    height: 14px;
+}
+
+.search-keywords {
+    flex: 1;
+    min-width: 220px;
+}
+
+.search-narrow {
+    width: 110px;
+    flex-shrink: 0;
+}
+
+.search-row-bottom {
+    margin-top: 14px;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+
+.search-actions {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+
+.search-status {
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: #aaa;
+    min-height: 18px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+    color: #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+    accent-color: #00d4ff;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 .status {
@@ -330,6 +415,22 @@ header p {
     font-size: 0.85em;
     color: #b0b0b0;
     margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.seller-rating {
+    font-size: 0.85em;
+    color: #ffd700;
+    font-weight: 600;
+}
+
+.metric-avg {
+    background: rgba(0, 255, 150, 0.1);
+    border-color: rgba(0, 255, 150, 0.3);
+    border-left-color: #00ff96;
 }
 
 .product-metrics {

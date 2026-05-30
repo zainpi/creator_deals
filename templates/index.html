@@ -17,26 +17,29 @@
     <!-- Search panel -->
     <div class="control-panel">
         <div class="search-row">
-            <div class="filter-group" style="flex:1; min-width:200px;">
+            <div class="filter-group search-keywords">
                 <label>Keywords</label>
-                <input id="amazon_keywords" type="text" placeholder="e.g. gaming laptop, headphones" style="width:100%;">
+                <input id="amazon_keywords" type="text" placeholder="e.g. gaming laptop, headphones">
             </div>
-            <div class="filter-group">
+            <div class="filter-group search-narrow">
                 <label>Pages per market</label>
-                <input id="pages_to_search" type="number" value="1" min="1" max="20" style="width:80px;">
+                <input id="pages_to_search" type="number" value="1" min="1" max="20">
             </div>
             <div class="filter-group">
-                <label>Min Saving %</label>
-                <input id="min_saving" type="number" value="50" min="0" max="100" style="width:80px;">
-            </div>
-            <div class="filter-group">
-                <label>Max Price (€/£)</label>
-                <input id="max_price" type="number" value="450" min="0" style="width:90px;">
+                <label title="How Amazon's Creators API orders results">Sort By (Creators API)</label>
+                <select id="sort_by">
+                    <option value="Featured">Featured</option>
+                    <option value="Price:LowToHigh">Price: Low → High</option>
+                    <option value="Price:HighToLow">Price: High → Low</option>
+                    <option value="AvgCustomerReviews">Avg. Customer Reviews</option>
+                    <option value="NewestArrivals">Newest Arrivals</option>
+                </select>
             </div>
         </div>
-        <div class="search-row" style="margin-top:10px; align-items:center; flex-wrap:wrap; gap:12px;">
+
+        <div class="search-row search-row-bottom">
             <div class="filter-group">
-                <label style="display:block; margin-bottom:4px;">Marketplaces</label>
+                <label>Marketplaces</label>
                 <div class="marketplace-checks">
                     <label><input type="checkbox" name="marketplace" value="DE" checked> 🇩🇪 DE</label>
                     <label><input type="checkbox" name="marketplace" value="GB"> 🇬🇧 GB</label>
@@ -45,13 +48,14 @@
                     <label><input type="checkbox" name="marketplace" value="IT"> 🇮🇹 IT</label>
                 </div>
             </div>
-            <div style="display:flex; gap:10px; align-items:flex-end; margin-left:auto;">
+            <div class="search-actions">
                 <button class="btn btn-secondary" onclick="savePreferences()">💾 Save</button>
                 <button class="btn btn-start" id="search-btn" onclick="runSearch()">🔍 Search</button>
                 <button class="btn btn-reset" onclick="clearProducts()">🗑 Clear</button>
             </div>
         </div>
-        <div id="search-status" style="margin-top:8px; font-size:0.85em; color:#aaa; min-height:18px;"></div>
+
+        <div id="search-status" class="search-status"></div>
     </div>
 
     <!-- Stats -->
@@ -70,29 +74,35 @@
         </div>
     </div>
 
-    <!-- Display filters -->
+    <!-- Filters applied to discoveries -->
     <div class="filters-section">
-        <h2>🔎 Display Filters</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <h2 style="margin:0;">🔎 Filters</h2>
+            <label class="toggle-label">
+                <input type="checkbox" id="use_filters" checked onchange="updateView()">
+                <span>Apply to discoveries</span>
+            </label>
+        </div>
         <div class="filter-row">
             <div class="filter-group">
+                <label>Min Discount %</label>
+                <input id="f_min_saving" type="number" value="0" min="0" max="100">
+            </div>
+            <div class="filter-group">
                 <label>Min AI Score</label>
-                <input id="min_ai_score" type="number" value="0" min="0" max="10" step="0.1">
+                <input id="f_min_ai_score" type="number" value="0" min="0" max="10" step="0.1">
             </div>
             <div class="filter-group">
-                <label>Min Keepa Drop %</label>
-                <input id="min_keepa_drop" type="number" value="0" min="0" max="100">
+                <label>Min Seller Rating %</label>
+                <input id="f_min_seller_rating" type="number" value="0" min="0" max="100">
             </div>
             <div class="filter-group">
-                <label>Min Rating</label>
-                <input id="min_rating" type="number" value="0" min="0" max="5" step="0.1">
+                <label>Min Price (€/£)</label>
+                <input id="f_min_price" type="number" value="0" min="0">
             </div>
             <div class="filter-group">
-                <label>Min Reviews</label>
-                <input id="min_reviews" type="number" value="0" min="0">
-            </div>
-            <div class="filter-group">
-                <label>Min Seller Feedback %</label>
-                <input id="min_feedback" type="number" value="0" min="0" max="100">
+                <label>Max Price (€/£)</label>
+                <input id="f_max_price" type="number" value="0" min="0">
             </div>
         </div>
     </div>
@@ -210,7 +220,7 @@
 
 </div>
 
-<script src="/static/app.js?v=8"></script>
+<script src="/static/app.js?v=9"></script>
 
 </body>
 </html>

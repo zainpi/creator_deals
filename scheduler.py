@@ -41,10 +41,14 @@ class DealScheduler:
         self.basic_mode = bool(config.get("creators", {}).get("basic_mode", False))
 
     def search_for_user(self, user_id: str, keywords: str, marketplaces: list,
-                        pages: int, min_saving: int, max_price: float) -> list:
+                        pages: int, min_saving: int, max_price: float,
+                        filters: dict = None, sort_by: str = None) -> list:
         """
         Run an on-demand Creators API search for one user.
         Stores results in DB tagged with user_id and returns them.
+        filters dict keys: use_filters, min_saving, min_ai_score,
+                           min_seller_rating, min_price, max_price
+        sort_by: Creators API sortBy value (e.g. "Price:LowToHigh", "Featured").
         """
         self.stats.scan_count += 1
         self.stats.last_scan_time = datetime.now().isoformat()
@@ -60,17 +64,20 @@ class DealScheduler:
 
                 for page in range(1, pages + 1):
                     try:
-                        items = self.searcher.search_items(
+                        search_kwargs = dict(
                             page=page,
                             keywords=keywords or None,
                             min_saving_percent=min_saving,
                             max_price=float(max_price),
                         )
+                        if sort_by:
+                            search_kwargs["sort_by"] = sort_by
+                        items = self.searcher.search_items(**search_kwargs)
                         for item in items:
                             item = dict(item)
                             item["_marketplace"] = mk
                             item["_page"] = page
-                            product = self._process_item(user_id, item)
+                            product = self._process_item(user_id, item, filters=filters)
                             if product:
                                 saved.append(product)
                     except Exception as e:
@@ -82,7 +89,7 @@ class DealScheduler:
         self.stats.log_summary()
         return saved
 
-    def _process_item(self, user_id: str, item: dict):
+    def _process_item(self, user_id: str, item: dict, filters: dict = None):
         """Process a single item for a specific user. Returns product dict or None."""
         ctx_marketplace = item.get("_marketplace")
         ctx_page = item.get("_page")
@@ -125,20 +132,31 @@ class DealScheduler:
             self.stats.seller_filtered += 1
             return None
 
+        mk_ctx = item.get("_marketplace") or self.config.get("amazon", {}).get("marketplace", "DE")
+        keepa_domain = "GB" if str(mk_ctx).upper() in ("GB", "UK") else str(mk_ctx).upper()
+        keepa_enabled = self.config.get("keepa", {}).get("enabled", True)
+
         keepa_data = None
         try:
-            keepa_enabled = self.config.get("keepa", {}).get("enabled", True)
             if keepa_enabled and self.keepa and price is not None:
-                mk_ctx = item.get("_marketplace") or self.config.get("amazon", {}).get("marketplace", "DE")
-                keepa_domain = "GB" if str(mk_ctx).upper() in ("GB", "UK") else str(mk_ctx).upper()
                 keepa_data = self.keepa.validate_deal(asin, price, domain=keepa_domain)
         except Exception as e:
             logger.warning(f"[SCHEDULER] Keepa error for {asin}: {e}")
 
         if keepa_data:
             self.stats.keepa_passed += 1
-        elif self.config.get("keepa", {}).get("enabled", True):
+        elif keepa_enabled:
             self.stats.keepa_failed += 1
+
+        # Fetch seller rating from Keepa
+        seller_rating = None
+        try:
+            if keepa_enabled and self.keepa and seller_data.get("seller_id"):
+                seller_rating = self.keepa.get_seller_rating(
+                    seller_data["seller_id"], domain=keepa_domain
+                )
+        except Exception as e:
+            logger.warning(f"[SCHEDULER] Seller rating error: {e}")
 
         mk_out = item.get("_marketplace") or self.config.get("amazon", {}).get("marketplace", "DE")
         savings_val = DealFilters.extract_savings_percent(listing)
@@ -153,6 +171,7 @@ class DealScheduler:
             "category": category,
             "seller_name": seller_data.get("seller_name"),
             "seller_id": seller_data.get("seller_id"),
+            "seller_rating": seller_rating,
             "keepa_avg_90": (keepa_data or {}).get("avg90"),
             "keepa_drop_percent": (keepa_data or {}).get("drop_percent"),
             "keepa_sales_rank": (keepa_data or {}).get("sales_rank"),
@@ -188,6 +207,32 @@ class DealScheduler:
         else:
             product["ai_score"] = 0
             product["ai_reason"] = "AI disabled"
+
+        # Apply server-side filters before saving
+        if filters and filters.get("use_filters", True):
+            f_min_saving       = filters.get("min_saving", 0)
+            f_min_ai           = filters.get("min_ai_score", 0)
+            f_min_seller       = filters.get("min_seller_rating", 0)
+            f_min_price        = filters.get("min_price", 0)
+            f_max_price        = filters.get("max_price", 0)
+
+            sv = product.get("savings_percent") or 0
+            if f_min_saving > 0 and sv < f_min_saving:
+                return None
+
+            ai = product.get("ai_score") or 0
+            if f_min_ai > 0 and ai < f_min_ai:
+                return None
+
+            sr = product.get("seller_rating")
+            if f_min_seller > 0 and (sr is None or sr < f_min_seller):
+                return None
+
+            cp = product.get("current_price") or 0
+            if f_min_price > 0 and cp < f_min_price:
+                return None
+            if f_max_price > 0 and cp > f_max_price:
+                return None
 
         try:
             insert_product(product)
