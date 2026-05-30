@@ -5,20 +5,36 @@ DB_PATH = "data/discovered_asins.db"
 
 
 def _migrate(conn):
-    """Migrate discovered_products schema as needed."""
+    """Migrate schema as needed."""
     c = conn.cursor()
+
+    # ---- discovered_products ----
     c.execute("PRAGMA table_info('discovered_products')")
     cols = [row[1] for row in c.fetchall()]
-    if not cols:
-        return  # table doesn't exist yet, init_db will create it
-    if 'user_id' not in cols:
-        # Old schema without user_id — must drop and recreate (can't change PK)
-        c.execute("DROP TABLE discovered_products")
-        conn.commit()
-        return
-    # Add any missing columns to existing schema
-    if 'seller_rating' not in cols:
-        c.execute("ALTER TABLE discovered_products ADD COLUMN seller_rating REAL")
+    if cols:
+        if 'user_id' not in cols:
+            # Old schema without user_id — must drop and recreate (can't change PK)
+            c.execute("DROP TABLE discovered_products")
+            conn.commit()
+        elif 'seller_rating' not in cols:
+            c.execute("ALTER TABLE discovered_products ADD COLUMN seller_rating REAL")
+            conn.commit()
+
+    # ---- user_preferences: backfill any columns added after the table first shipped ----
+    c.execute("PRAGMA table_info('user_preferences')")
+    pref_cols = [row[1] for row in c.fetchall()]
+    if pref_cols:
+        for col, ddl in (
+            ("sort_by", "TEXT"),
+            ("use_filters", "INTEGER DEFAULT 1"),
+            ("f_min_saving", "INTEGER DEFAULT 0"),
+            ("f_min_ai_score", "REAL DEFAULT 0"),
+            ("f_min_seller_rating", "REAL DEFAULT 0"),
+            ("f_min_price", "REAL DEFAULT 0"),
+            ("f_max_price", "REAL DEFAULT 0"),
+        ):
+            if col not in pref_cols:
+                c.execute(f"ALTER TABLE user_preferences ADD COLUMN {col} {ddl}")
         conn.commit()
 
 
@@ -182,10 +198,12 @@ def get_user_preferences(user_id):
     c = conn.cursor()
     c.execute("SELECT * FROM user_preferences WHERE user_id=?", (user_id,))
     row = c.fetchone()
+    # Use the cursor's actual column names so order always matches the live schema
+    # (physical column order can differ from the CREATE TABLE after ALTER migrations)
+    columns = [d[0] for d in c.description]
     conn.close()
     if not row:
         return {}
-    columns = ["user_id", "keywords", "marketplaces", "min_saving", "max_price", "pages", "sort_by", "updated_at"]
     return dict(zip(columns, row))
 
 
