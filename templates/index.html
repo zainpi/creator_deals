@@ -48,6 +48,13 @@
                     <label><input type="checkbox" name="marketplace" value="IT"> 🇮🇹 IT</label>
                 </div>
             </div>
+            <div class="filter-group">
+                <label title="Enable price-history validation and AI scoring for results">Enrichment</label>
+                <div class="marketplace-checks">
+                    <label title="Validate deals against Keepa price history"><input type="checkbox" id="use_keepa" checked> Use Keepa</label>
+                    <label title="Score deals with AI (also gates Discord posting)"><input type="checkbox" id="use_ai" checked> Use AI</label>
+                </div>
+            </div>
             <div class="search-actions">
                 <button class="btn btn-secondary" onclick="savePreferences()">💾 Save</button>
                 <button class="btn btn-start" id="search-btn" onclick="runSearch()">🔍 Search</button>
@@ -220,7 +227,7 @@
 
 </div>
 
-<script src="/static/app.js?v=9"></script>
+<script src="/static/app.js?v=10"></script>
 
 </body>
 </html>

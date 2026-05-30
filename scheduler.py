@@ -135,10 +135,12 @@ class DealScheduler:
         mk_ctx = item.get("_marketplace") or self.config.get("amazon", {}).get("marketplace", "DE")
         keepa_domain = "GB" if str(mk_ctx).upper() in ("GB", "UK") else str(mk_ctx).upper()
         keepa_enabled = self.config.get("keepa", {}).get("enabled", True)
+        # Keepa only actually runs when enabled AND a client was created (api key present)
+        keepa_active = bool(keepa_enabled and self.keepa)
 
         keepa_data = None
         try:
-            if keepa_enabled and self.keepa and price is not None:
+            if keepa_active and price is not None:
                 keepa_data = self.keepa.validate_deal(asin, price, domain=keepa_domain)
         except Exception as e:
             logger.warning(f"[SCHEDULER] Keepa error for {asin}: {e}")
@@ -148,10 +150,12 @@ class DealScheduler:
         elif keepa_enabled:
             self.stats.keepa_failed += 1
 
-        # Fetch seller rating from Keepa
-        seller_rating = None
+        # Seller rating only comes from Keepa. When Keepa is off, default to 0
+        # so the field is always numeric (never None) and a "min rating ≥ 0"
+        # filter still lets everything through.
+        seller_rating = None if keepa_active else 0
         try:
-            if keepa_enabled and self.keepa and seller_data.get("seller_id"):
+            if keepa_active and seller_data.get("seller_id"):
                 seller_rating = self.keepa.get_seller_rating(
                     seller_data["seller_id"], domain=keepa_domain
                 )

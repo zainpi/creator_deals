@@ -218,6 +218,8 @@ async function runSearch() {
                 pages,
                 sort_by:      document.getElementById('sort_by')?.value || 'Featured',
                 use_filters:  useFilters,
+                use_keepa:    !!document.getElementById('use_keepa')?.checked,
+                use_ai:       !!document.getElementById('use_ai')?.checked,
                 f_min_saving:        parseFloat(document.getElementById('f_min_saving')?.value       || '0'),
                 f_min_ai_score:      parseFloat(document.getElementById('f_min_ai_score')?.value      || '0'),
                 f_min_seller_rating: parseFloat(document.getElementById('f_min_seller_rating')?.value || '0'),
@@ -280,6 +282,8 @@ async function savePreferences() {
         pages:        parseInt(document.getElementById('pages_to_search')?.value || '1'),
         sort_by:      document.getElementById('sort_by')?.value || 'Featured',
         use_filters:  !!document.getElementById('use_filters')?.checked,
+        use_keepa:    !!document.getElementById('use_keepa')?.checked,
+        use_ai:       !!document.getElementById('use_ai')?.checked,
         f_min_saving:        parseFloat(document.getElementById('f_min_saving')?.value        || '0'),
         f_min_ai_score:      parseFloat(document.getElementById('f_min_ai_score')?.value       || '0'),
         f_min_seller_rating: parseFloat(document.getElementById('f_min_seller_rating')?.value  || '0'),
@@ -318,6 +322,10 @@ async function loadPreferences() {
             document.getElementById('sort_by').value = p.sort_by;
         if (p.use_filters !== undefined && document.getElementById('use_filters'))
             document.getElementById('use_filters').checked = !!p.use_filters;
+        if (p.use_keepa !== undefined && document.getElementById('use_keepa'))
+            document.getElementById('use_keepa').checked = !!p.use_keepa;
+        if (p.use_ai !== undefined && document.getElementById('use_ai'))
+            document.getElementById('use_ai').checked = !!p.use_ai;
         if (p.f_min_saving        != null && document.getElementById('f_min_saving'))
             document.getElementById('f_min_saving').value = p.f_min_saving;
         if (p.f_min_ai_score      != null && document.getElementById('f_min_ai_score'))

@@ -629,9 +629,18 @@ class CreatorsSearch:
 
         cfg_amz = self.config.get("amazon") or {}
 
+        # Whether the caller supplied explicit search terms (user-driven search)
+        # vs. relying on automatic deal-keyword rotation.
+        user_keywords = bool(keywords and str(keywords).strip())
+
         # Apply config overrides only when caller is using method defaults
         if search_index == "Electronics" and cfg_amz.get("search_index"):
             search_index = str(cfg_amz["search_index"]).strip()
+        elif search_index == "Electronics" and user_keywords:
+            # A user typed real keywords — don't pin results to Electronics or
+            # their term gets filtered out. Search across all categories so the
+            # keywords actually drive the results.
+            search_index = "All"
         if self.basic_mode:
             search_index = "All"
 

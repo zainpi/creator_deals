@@ -27,6 +27,8 @@ def _migrate(conn):
         for col, ddl in (
             ("sort_by", "TEXT"),
             ("use_filters", "INTEGER DEFAULT 1"),
+            ("use_keepa", "INTEGER DEFAULT 1"),
+            ("use_ai", "INTEGER DEFAULT 1"),
             ("f_min_saving", "INTEGER DEFAULT 0"),
             ("f_min_ai_score", "REAL DEFAULT 0"),
             ("f_min_seller_rating", "REAL DEFAULT 0"),
@@ -80,6 +82,8 @@ def init_db():
             pages INTEGER,
             sort_by TEXT,
             use_filters INTEGER DEFAULT 1,
+            use_keepa INTEGER DEFAULT 1,
+            use_ai INTEGER DEFAULT 1,
             f_min_saving INTEGER DEFAULT 0,
             f_min_ai_score REAL DEFAULT 0,
             f_min_seller_rating REAL DEFAULT 0,
@@ -213,9 +217,9 @@ def save_user_preferences(user_id, prefs):
     c.execute('''
         INSERT OR REPLACE INTO user_preferences
             (user_id, keywords, marketplaces, min_saving, max_price, pages, sort_by,
-             use_filters, f_min_saving, f_min_ai_score, f_min_seller_rating,
-             f_min_price, f_max_price, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             use_filters, use_keepa, use_ai, f_min_saving, f_min_ai_score,
+             f_min_seller_rating, f_min_price, f_max_price, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         user_id,
         prefs.get("keywords", ""),
@@ -225,6 +229,8 @@ def save_user_preferences(user_id, prefs):
         prefs.get("pages", 1),
         prefs.get("sort_by", "Featured"),
         int(prefs.get("use_filters", True)),
+        int(prefs.get("use_keepa", True)),
+        int(prefs.get("use_ai", True)),
         prefs.get("f_min_saving", 0),
         prefs.get("f_min_ai_score", 0),
         prefs.get("f_min_seller_rating", 0),

@@ -171,6 +171,12 @@ def api_search():
     if sort_by not in VALID_SORT:
         sort_by = "Featured"
 
+    # Per-user enrichment toggles. Default to the server config value when the
+    # request omits them. These only enable/disable enrichment + Discord posting;
+    # items are never dropped just because Keepa or AI is off.
+    use_keepa = bool(data.get("use_keepa", config.get("keepa", {}).get("enabled", False)))
+    use_ai = bool(data.get("use_ai", config.get("ai", {}).get("enabled", True)))
+
     filters = {
         "use_filters":       bool(data.get("use_filters", True)),
         "min_saving":        int(data.get("f_min_saving", 0)),
@@ -180,7 +186,8 @@ def api_search():
         "max_price":         float(data.get("f_max_price", 0)),
     }
 
-    # Build per-request config inheriting server defaults
+    # Build per-request config inheriting server defaults.
+    # Copy each mutated sub-section so we never mutate the shared global config.
     search_config = dict(config)
     search_config["amazon"] = dict(config.get("amazon", {}))
     search_config["amazon"]["keywords"] = keywords
@@ -188,6 +195,11 @@ def api_search():
     search_config["amazon"]["max_price"] = max_price
     # Make the user's sortBy authoritative (overrides the server default in search_items)
     search_config["amazon"]["sort_by"] = sort_by
+    # Apply per-user enrichment toggles
+    search_config["keepa"] = dict(config.get("keepa", {}))
+    search_config["keepa"]["enabled"] = use_keepa
+    search_config["ai"] = dict(config.get("ai", {}))
+    search_config["ai"]["enabled"] = use_ai
 
     try:
         stats = TestingStats()
