@@ -203,6 +203,9 @@ async function runSearch() {
         return;
     }
 
+    // Persist current settings on every search so they stick for next time.
+    await savePreferences(true);
+
     btn.disabled    = true;
     btn.textContent = '⏳ Searching…';
     statusEl.textContent = `Searching ${markets.join(', ')} — ${pages} page(s)…`;
@@ -227,7 +230,17 @@ async function runSearch() {
                 f_max_price:         parseFloat(document.getElementById('f_max_price')?.value         || '0'),
             }),
         });
-        const data = await res.json();
+        // Read defensively: a timeout/crash returns an HTML error page, not JSON.
+        const raw = await res.text();
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch {
+            statusEl.textContent = (res.status === 0 || res.status >= 500 || !res.ok)
+                ? `❌ Server error (${res.status || 'timeout'}). The search likely timed out — try fewer pages, or turn off Keepa/AI for broad keywords.`
+                : `❌ Unexpected non-JSON response (${res.status}).`;
+            return;
+        }
 
         if (data.success) {
             sessionApiCalls += data.api_calls || 0;
@@ -271,7 +284,7 @@ async function clearProducts() {
 
 // ============= PREFERENCES =============
 
-async function savePreferences() {
+async function savePreferences(silent = false) {
     const checked = [...document.querySelectorAll('input[name="marketplace"]:checked')];
     const markets = checked.map(el => el.value).join(',');
 
@@ -298,9 +311,11 @@ async function savePreferences() {
             body:    JSON.stringify(prefs),
         });
         const data = await res.json();
-        const status = document.getElementById('search-status');
-        status.textContent = data.success ? '💾 Preferences saved.' : '❌ Save failed.';
-        setTimeout(() => { if (status.textContent.startsWith('💾')) status.textContent = ''; }, 2000);
+        if (!silent) {
+            const status = document.getElementById('search-status');
+            status.textContent = data.success ? '💾 Preferences saved.' : '❌ Save failed.';
+            setTimeout(() => { if (status.textContent.startsWith('💾')) status.textContent = ''; }, 2000);
+        }
     } catch (e) {
         console.error('Save prefs error:', e);
     }
