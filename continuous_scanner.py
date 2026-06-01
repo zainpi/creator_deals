@@ -170,7 +170,7 @@ class ContinuousScanner:
                 search_index=target["search_index"],
                 sort_by=target["sort_by"],
                 keywords=target["keyword"],
-                min_saving_percent=0,      # discovery breadth; we gate via Keepa, not API %
+                min_saving_percent=1,      # API minimum is 1; we gate for real via Keepa, not API %
                 max_price=100000.0,
             )
         except Exception as e:
