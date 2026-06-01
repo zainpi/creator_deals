@@ -4,3 +4,6 @@ __pycache__/
 venv/
 *.db-journal
 .DS_Store
+
+# Local SQLite DB (Heroku uses Postgres via DATABASE_URL)
+data/*.db
