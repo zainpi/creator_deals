@@ -128,6 +128,25 @@ class KeepaService:
             logger.info(f"[KEEPA] Batch-validated {len(to_query)} ASIN(s) in {((len(to_query) - 1) // 100) + 1} request(s)")
         return results
 
+    @staticmethod
+    def _coerce_rating(data):
+        """Extract a numeric positive-feedback % from a Keepa seller record.
+        Keepa may return the rating as a scalar or as a history array, so handle both."""
+        if not isinstance(data, dict):
+            return None
+        val = data.get("currentRating")
+        if val is None:
+            val = data.get("feedbackRating")
+        if val is None:
+            val = data.get("rating")
+        if isinstance(val, (list, tuple)):
+            nums = [x for x in val if isinstance(x, (int, float))]
+            val = nums[-1] if nums else None
+        try:
+            return float(val) if val is not None else None
+        except (TypeError, ValueError):
+            return None
+
     def get_seller_rating(self, seller_id: str, domain: str = "DE"):
         """
         Return seller positive feedback % (0-100) from Keepa.
@@ -138,16 +157,11 @@ class KeepaService:
         if seller_id in self._seller_cache:
             return self._seller_cache[seller_id]
         try:
-            sellers = self.api.query_seller(seller_id)
+            sellers = self.api.seller_query(seller_id, domain=domain)
             data = sellers.get(seller_id) if isinstance(sellers, dict) else None
             if data is None and isinstance(sellers, list) and sellers:
                 data = sellers[0]
-            if not data:
-                return None
-            rating = data.get("feedbackRating")
-            if rating is None:
-                rating = data.get("rating")
-            result = float(rating) if rating is not None else None
+            result = self._coerce_rating(data)
             self._seller_cache[seller_id] = result
             return result
         except Exception as e:
@@ -171,18 +185,13 @@ class KeepaService:
 
         if to_query:
             try:
-                sellers = self.api.query_seller(to_query)
+                sellers = self.api.seller_query(to_query, domain=domain)
             except Exception as e:
                 logger.warning(f"[KEEPA] Seller batch error: {e}")
                 sellers = {}
             for sid in to_query:
                 data = sellers.get(sid) if isinstance(sellers, dict) else None
-                rating = None
-                if data:
-                    rating = data.get("feedbackRating")
-                    if rating is None:
-                        rating = data.get("rating")
-                val = float(rating) if rating is not None else None
+                val = self._coerce_rating(data)
                 self._seller_cache[sid] = val
                 out[sid] = val
         return out
