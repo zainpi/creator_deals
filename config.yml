@@ -57,10 +57,20 @@ scanner:
   creators_batch_delay: 1.5
   keepa_batch_size: 100
   max_parallel_requests: 5
-  pages_to_search: 5
-  scan_interval_seconds: 15
-  # Optional: explicit list of marketplaces to scan (defaults to DE,GB,FR,ES,IT)
-  # marketplaces: [DE, GB, FR, ES, IT]
+  pages_to_search: 5                  # max page per (index, keyword) combo
+  scan_interval_seconds: 15           # delay between scan ticks (worker loop)
+  cooldown_hours: 48                  # don't re-Keepa the same ASIN within this window
+  marketplaces: [DE, GB, FR, ES, IT]  # marketplaces the continuous scanner rotates through
+  sort_rotation: [Featured, "Price:LowToHigh", NewestArrivals]
+
+# Category-aware pricing brain for the continuous scanner.
+# The Keepa euro-off threshold scales with each category's learned typical price.
+pricing:
+  min_euro_off_default: 50      # cold-start / top-tier euro floor (e.g. electronics)
+  min_euro_off_floor: 8         # cheapest categories never require less than this
+  euro_off_pct_of_typical: 0.15 # scaled threshold = typical_avg90 * this (clamped to floor..default)
+  min_baseline_samples: 5       # Keepa samples before a category is considered "learned"
+  worth_keepa_factor: 0.6       # pre-filter tightness: skip Keepa unless price is this close to a deal
 
 # Seller rules
 seller:

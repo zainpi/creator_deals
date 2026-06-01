@@ -1,15 +1,19 @@
-import yaml
 import logging
 import os
+import threading
+from datetime import datetime
 
 from flask import Flask, render_template, jsonify, request
 
+from config_loader import load_config
 from scheduler import DealScheduler
 from testing_stats import TestingStats
 from database import (
-    init_db, reset_db,
+    init_db, reset_db, GLOBAL_FEED_USER_ID,
     get_products_for_user, get_stats_for_user, clear_products_for_user,
     get_user_preferences, save_user_preferences,
+    set_search_job, get_search_job,
+    get_scanner_state, update_scanner_state,
 )
 
 logging.basicConfig(
@@ -20,67 +24,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-
-def _upper_key(s: str) -> str:
-    return "".join(c if c.isalnum() else "_" for c in str(s)).upper()
-
-
-def _env(*names: str) -> str | None:
-    for n in names:
-        v = os.getenv(n)
-        if v is not None and str(v).strip() != "":
-            return v
-    return None
-
-
-def _apply_env_overrides(cfg: dict) -> dict:
-    cfg = cfg or {}
-
-    wh = _env("DISCORD_WEBHOOK", "DISCORD_WEBHOOK_URL")
-    if wh:
-        cfg.setdefault("discord", {})["webhook_url"] = wh
-
-    keepa_key = _env("KEEPA_API_KEY")
-    if keepa_key:
-        cfg.setdefault("keepa", {})["api_key"] = keepa_key
-    keepa_enabled = _env("KEEPA_ENABLED")
-    if keepa_enabled is not None:
-        try:
-            cfg.setdefault("keepa", {})["enabled"] = str(keepa_enabled).lower() in ("1", "true", "yes", "on")
-        except Exception:
-            pass
-
-    apify = _env("APIFY_API_TOKEN")
-    if apify:
-        cfg["apify_api_token"] = apify
-
-    for k, v in list(cfg.items()):
-        try:
-            if not (isinstance(k, str) and k.startswith("Amazon_")):
-                continue
-            section = cfg.get(k) or {}
-            up = _upper_key(k)
-            for field in ("Application", "Application_Id", "Credential_Id", "Secret"):
-                env_name = f"{up}_{_upper_key(field)}"
-                ev = _env(env_name)
-                if ev:
-                    section[field] = ev
-            cfg[k] = section
-        except Exception:
-            continue
-
-    return cfg
-
-
 # Load server config (admin-only, used as defaults for AI/Keepa/Discord)
-try:
-    with open("config.yml", "r") as f:
-        config = yaml.safe_load(f) or {}
-    config = _apply_env_overrides(config)
-    logger.info("[APP] Config loaded from config.yml")
-except Exception as e:
-    logger.error(f"[APP] Failed to load config: {e}")
-    config = _apply_env_overrides({})
+config = load_config()
 
 # Init DB at import time so gunicorn workers always have the schema ready
 try:
@@ -201,28 +146,96 @@ def api_search():
     search_config["ai"] = dict(config.get("ai", {}))
     search_config["ai"]["enabled"] = use_ai
 
+    # Don't start a second search for the same user while one is running.
+    existing = get_search_job(user_id)
+    if existing.get("status") == "running":
+        return jsonify({"success": True, "started": False,
+                        "message": "A search is already running"}), 202
+
+    search_kwargs = dict(
+        keywords=keywords,
+        marketplaces=marketplaces,
+        pages=pages,
+        min_saving=min_saving,
+        max_price=max_price,
+        filters=filters,
+        sort_by=sort_by,
+    )
+
+    # Run the search in the background so the HTTP request returns immediately
+    # (avoids the host router timeout). Items are saved to the DB as they're
+    # processed, so the page can poll /api/products and show them as they land.
+    set_search_job(user_id, status="running", found=0, api_calls=0,
+                   error=None, started_at=datetime.utcnow().isoformat(), finished_at=None)
+    threading.Thread(
+        target=_run_search_job,
+        args=(user_id, search_config, search_kwargs),
+        daemon=True,
+    ).start()
+
+    return jsonify({"success": True, "started": True})
+
+
+def _run_search_job(user_id, search_config, search_kwargs):
+    """Background worker: run the search and record final status in the DB."""
     try:
         stats = TestingStats()
         scheduler = DealScheduler(search_config, stats)
-        results = scheduler.search_for_user(
-            user_id=user_id,
-            keywords=keywords,
-            marketplaces=marketplaces,
-            pages=pages,
-            min_saving=min_saving,
-            max_price=max_price,
-            filters=filters,
-            sort_by=sort_by,
-        )
-        return jsonify({
-            "success": True,
-            "found": len(results),
-            "api_calls": stats.api_calls,
-            "results": results,
-        })
+        results = scheduler.search_for_user(user_id=user_id, **search_kwargs)
+        set_search_job(user_id, status="done", found=len(results),
+                       api_calls=stats.api_calls, error=None,
+                       finished_at=datetime.utcnow().isoformat())
     except Exception as e:
         logger.exception(f"[APP] Search error for user {user_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        set_search_job(user_id, status="error", error=str(e),
+                       finished_at=datetime.utcnow().isoformat())
+
+
+@app.route("/api/search_status")
+def api_search_status():
+    user_id = request.args.get("user_id", "")
+    if not user_id:
+        return jsonify({})
+    return jsonify(get_search_job(user_id))
+
+
+# ==================== Continuous global feed (worker-driven) ====================
+
+@app.route("/api/feed")
+def api_feed():
+    """The shared, continuously-scanned discovery feed."""
+    products = get_products_for_user(GLOBAL_FEED_USER_ID)
+    category = (request.args.get("category") or "").strip().lower()
+    if category:
+        products = [p for p in products if (p.get("category") or "").lower() == category]
+    try:
+        limit = int(request.args.get("limit", 0))
+    except Exception:
+        limit = 0
+    if limit > 0:
+        products = products[:limit]
+    return jsonify(products)
+
+
+@app.route("/api/scanner_status")
+def api_scanner_status():
+    state = get_scanner_state()
+    stats = get_stats_for_user(GLOBAL_FEED_USER_ID)
+    state["feed_total"] = stats.get("total_discovered", 0)
+    state["feed_posted"] = stats.get("total_posted", 0)
+    return jsonify(state)
+
+
+@app.route("/api/scanner_control", methods=["POST"])
+def api_scanner_control():
+    action = (request.json or {}).get("action", "")
+    if action == "pause":
+        update_scanner_state(enabled=0)
+    elif action == "resume":
+        update_scanner_state(enabled=1)
+    else:
+        return jsonify({"success": False, "error": "action must be 'pause' or 'resume'"}), 400
+    return jsonify({"success": True, "state": get_scanner_state()})
 
 
 # ==================== Test endpoint (unchanged) ====================

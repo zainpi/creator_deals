@@ -1,11 +1,51 @@
+"""Data layer for the Creators Deal Finder.
+
+Works on two backends, chosen automatically:
+- **Postgres** when `DATABASE_URL` is set (Heroku) — shared & persistent across
+  the web and worker dynos.
+- **SQLite** otherwise (local dev / tests) — file at DB_PATH.
+
+SQL is written once with `?` placeholders and upserts use `ON CONFLICT`, which
+both modern SQLite (3.24+) and Postgres support. `_q()` swaps `?` -> `%s` for
+psycopg2; `_connect()` returns the right connection.
+"""
+
+import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+IS_POSTGRES = bool(DATABASE_URL) and psycopg2 is not None
 
 DB_PATH = "data/discovered_asins.db"
 
+# Reserved user_id for the shared, continuously-scanned discovery feed.
+GLOBAL_FEED_USER_ID = "__global__"
+
+
+def _connect():
+    if IS_POSTGRES:
+        conn = psycopg2.connect(DATABASE_URL, sslmode=os.getenv("PGSSLMODE", "require"))
+        conn.autocommit = True  # explicit commit() calls below become harmless no-ops
+        return conn
+    return sqlite3.connect(DB_PATH, timeout=30)
+
+
+def _q(sql: str) -> str:
+    """Translate `?` placeholders to `%s` for psycopg2."""
+    return sql.replace("?", "%s") if IS_POSTGRES else sql
+
 
 def _migrate(conn):
-    """Migrate schema as needed."""
+    """SQLite-only schema backfill for pre-existing local databases.
+    Postgres deployments start fresh with the full schema below, so no migration."""
+    if IS_POSTGRES:
+        return
     c = conn.cursor()
 
     # ---- discovered_products ----
@@ -41,7 +81,7 @@ def _migrate(conn):
 
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     _migrate(conn)
     c = conn.cursor()
 
@@ -93,15 +133,68 @@ def init_db():
         )
     ''')
 
+    # Background search job status (one row per user; shared across workers)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS search_jobs (
+            user_id TEXT PRIMARY KEY,
+            status TEXT,
+            found INTEGER DEFAULT 0,
+            api_calls INTEGER DEFAULT 0,
+            error TEXT,
+            started_at TEXT,
+            finished_at TEXT
+        )
+    ''')
+
+    # Continuous scanner state (single row, id=1). The web process reads this;
+    # the worker process writes it.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS scanner_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            tick INTEGER DEFAULT 0,
+            enabled INTEGER DEFAULT 1,
+            running INTEGER DEFAULT 0,
+            last_heartbeat TEXT,
+            current_target TEXT,
+            scanned_count INTEGER DEFAULT 0,
+            kept_count INTEGER DEFAULT 0,
+            last_error TEXT
+        )
+    ''')
+    c.execute("INSERT INTO scanner_state (id) VALUES (1) ON CONFLICT DO NOTHING")
+
+    # Learned "typical price" per (marketplace, category), built from Keepa 90d avgs.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS category_baselines (
+            marketplace TEXT NOT NULL,
+            category TEXT NOT NULL,
+            sample_count INTEGER DEFAULT 0,
+            avg90_sum REAL DEFAULT 0,
+            avg90_mean REAL DEFAULT 0,
+            updated_at TEXT,
+            PRIMARY KEY (marketplace, category)
+        )
+    ''')
+
+    # Cooldown ledger: every ASIN we evaluate, to avoid re-spending Keepa too soon.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS scan_seen (
+            marketplace TEXT NOT NULL,
+            asin TEXT NOT NULL,
+            last_scanned_at TEXT,
+            PRIMARY KEY (marketplace, asin)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
 
 def asin_exists(user_id, asin):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
     c.execute(
-        "SELECT asin FROM discovered_products WHERE user_id=? AND asin=?",
+        _q("SELECT asin FROM discovered_products WHERE user_id=? AND asin=?"),
         (user_id, asin),
     )
     result = c.fetchone()
@@ -110,31 +203,32 @@ def asin_exists(user_id, asin):
 
 
 def insert_product(product):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
-    c.execute('''
-        INSERT OR REPLACE INTO discovered_products (
-            user_id,
-            asin,
-            title,
-            marketplace,
-            current_price,
-            savings_percent,
-            category,
-            seller_name,
-            seller_id,
-            image,
-            keepa_avg_90,
-            keepa_drop_percent,
-            ai_score,
-            ai_reason,
-            page_found,
-            seller_rating,
-            first_seen,
-            last_seen,
-            posted
+    c.execute(_q('''
+        INSERT INTO discovered_products (
+            user_id, asin, title, marketplace, current_price, savings_percent,
+            category, seller_name, seller_id, image, keepa_avg_90, keepa_drop_percent,
+            ai_score, ai_reason, page_found, seller_rating, first_seen, last_seen, posted
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
+        ON CONFLICT (user_id, asin) DO UPDATE SET
+            title=EXCLUDED.title,
+            marketplace=EXCLUDED.marketplace,
+            current_price=EXCLUDED.current_price,
+            savings_percent=EXCLUDED.savings_percent,
+            category=EXCLUDED.category,
+            seller_name=EXCLUDED.seller_name,
+            seller_id=EXCLUDED.seller_id,
+            image=EXCLUDED.image,
+            keepa_avg_90=EXCLUDED.keepa_avg_90,
+            keepa_drop_percent=EXCLUDED.keepa_drop_percent,
+            ai_score=EXCLUDED.ai_score,
+            ai_reason=EXCLUDED.ai_reason,
+            page_found=EXCLUDED.page_found,
+            seller_rating=EXCLUDED.seller_rating,
+            last_seen=EXCLUDED.last_seen,
+            posted=EXCLUDED.posted
+    '''), (
         product["user_id"],
         product["asin"],
         product.get("title"),
@@ -160,10 +254,10 @@ def insert_product(product):
 
 
 def get_products_for_user(user_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
     c.execute(
-        "SELECT * FROM discovered_products WHERE user_id=? ORDER BY last_seen DESC",
+        _q("SELECT * FROM discovered_products WHERE user_id=? ORDER BY last_seen DESC"),
         (user_id,),
     )
     columns = [desc[0] for desc in c.description]
@@ -173,37 +267,30 @@ def get_products_for_user(user_id):
 
 
 def get_stats_for_user(user_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
-    c.execute(
-        "SELECT COUNT(*) FROM discovered_products WHERE user_id=?",
-        (user_id,),
-    )
+    c.execute(_q("SELECT COUNT(*) FROM discovered_products WHERE user_id=?"), (user_id,))
     total = c.fetchone()[0]
-    c.execute(
-        "SELECT COUNT(*) FROM discovered_products WHERE user_id=? AND posted=1",
-        (user_id,),
-    )
+    c.execute(_q("SELECT COUNT(*) FROM discovered_products WHERE user_id=? AND posted=1"), (user_id,))
     posted = c.fetchone()[0]
     conn.close()
     return {"total_discovered": total, "total_posted": posted}
 
 
 def clear_products_for_user(user_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
-    c.execute("DELETE FROM discovered_products WHERE user_id=?", (user_id,))
+    c.execute(_q("DELETE FROM discovered_products WHERE user_id=?"), (user_id,))
     conn.commit()
     conn.close()
 
 
 def get_user_preferences(user_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
-    c.execute("SELECT * FROM user_preferences WHERE user_id=?", (user_id,))
+    c.execute(_q("SELECT * FROM user_preferences WHERE user_id=?"), (user_id,))
     row = c.fetchone()
     # Use the cursor's actual column names so order always matches the live schema
-    # (physical column order can differ from the CREATE TABLE after ALTER migrations)
     columns = [d[0] for d in c.description]
     conn.close()
     if not row:
@@ -212,15 +299,31 @@ def get_user_preferences(user_id):
 
 
 def save_user_preferences(user_id, prefs):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
-    c.execute('''
-        INSERT OR REPLACE INTO user_preferences
+    c.execute(_q('''
+        INSERT INTO user_preferences
             (user_id, keywords, marketplaces, min_saving, max_price, pages, sort_by,
              use_filters, use_keepa, use_ai, f_min_saving, f_min_ai_score,
              f_min_seller_rating, f_min_price, f_max_price, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
+        ON CONFLICT (user_id) DO UPDATE SET
+            keywords=EXCLUDED.keywords,
+            marketplaces=EXCLUDED.marketplaces,
+            min_saving=EXCLUDED.min_saving,
+            max_price=EXCLUDED.max_price,
+            pages=EXCLUDED.pages,
+            sort_by=EXCLUDED.sort_by,
+            use_filters=EXCLUDED.use_filters,
+            use_keepa=EXCLUDED.use_keepa,
+            use_ai=EXCLUDED.use_ai,
+            f_min_saving=EXCLUDED.f_min_saving,
+            f_min_ai_score=EXCLUDED.f_min_ai_score,
+            f_min_seller_rating=EXCLUDED.f_min_seller_rating,
+            f_min_price=EXCLUDED.f_min_price,
+            f_max_price=EXCLUDED.f_max_price,
+            updated_at=EXCLUDED.updated_at
+    '''), (
         user_id,
         prefs.get("keywords", ""),
         prefs.get("marketplaces", "DE"),
@@ -242,13 +345,151 @@ def save_user_preferences(user_id, prefs):
     conn.close()
 
 
+def set_search_job(user_id, **fields):
+    """Upsert a user's background-search job status. Only updates given fields.
+
+    Field names are controlled by callers (status, found, api_calls, error,
+    started_at, finished_at) — not user input — so interpolation is safe here.
+    """
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute(_q("INSERT INTO search_jobs (user_id) VALUES (?) ON CONFLICT DO NOTHING"), (user_id,))
+        if fields:
+            assignments = ", ".join(f"{k}=?" for k in fields)
+            c.execute(
+                _q(f"UPDATE search_jobs SET {assignments} WHERE user_id=?"),
+                (*fields.values(), user_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_search_job(user_id):
+    conn = _connect()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM search_jobs WHERE user_id=?"), (user_id,))
+    row = c.fetchone()
+    columns = [d[0] for d in c.description]
+    conn.close()
+    if not row:
+        return {}
+    return dict(zip(columns, row))
+
+
+# ==================== Continuous scanner state ====================
+
+def get_scanner_state():
+    conn = _connect()
+    c = conn.cursor()
+    c.execute("SELECT * FROM scanner_state WHERE id=1")
+    row = c.fetchone()
+    columns = [d[0] for d in c.description]
+    conn.close()
+    if not row:
+        return {}
+    return dict(zip(columns, row))
+
+
+def update_scanner_state(**fields):
+    """Update the single scanner_state row. Field names are caller-controlled
+    (tick, enabled, running, last_heartbeat, current_target, scanned_count,
+    kept_count, last_error) — not user input — so interpolation is safe."""
+    if not fields:
+        return
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO scanner_state (id) VALUES (1) ON CONFLICT DO NOTHING")
+        assignments = ", ".join(f"{k}=?" for k in fields)
+        c.execute(_q(f"UPDATE scanner_state SET {assignments} WHERE id=1"),
+                  tuple(fields.values()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ==================== Category baselines (learned typical price) ====================
+
+def get_category_baselines(marketplace):
+    """Return {category: {sample_count, avg90_mean, ...}} for a marketplace."""
+    conn = _connect()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM category_baselines WHERE marketplace=?"), (marketplace,))
+    columns = [d[0] for d in c.description]
+    rows = c.fetchall()
+    conn.close()
+    return {row[columns.index("category")]: dict(zip(columns, row)) for row in rows}
+
+
+def bump_category_baseline(marketplace, category, avg90):
+    """Fold one Keepa 90-day average into a category's running mean."""
+    if not category or avg90 is None:
+        return
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute(_q('''
+            INSERT INTO category_baselines (marketplace, category, sample_count, avg90_sum, avg90_mean, updated_at)
+            VALUES (?, ?, 1, ?, ?, ?)
+            ON CONFLICT (marketplace, category) DO UPDATE SET
+                sample_count = category_baselines.sample_count + 1,
+                avg90_sum    = category_baselines.avg90_sum + EXCLUDED.avg90_sum,
+                avg90_mean   = (category_baselines.avg90_sum + EXCLUDED.avg90_sum) / (category_baselines.sample_count + 1.0),
+                updated_at   = EXCLUDED.updated_at
+        '''), (marketplace, category, float(avg90), float(avg90), datetime.utcnow().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ==================== Scan cooldown ledger ====================
+
+def seen_recently(marketplace, asin, cooldown_hours):
+    conn = _connect()
+    c = conn.cursor()
+    c.execute(
+        _q("SELECT last_scanned_at FROM scan_seen WHERE marketplace=? AND asin=?"),
+        (marketplace, asin),
+    )
+    row = c.fetchone()
+    conn.close()
+    if not row or not row[0]:
+        return False
+    try:
+        last = datetime.fromisoformat(row[0])
+    except Exception:
+        return False
+    return datetime.utcnow() - last < timedelta(hours=cooldown_hours)
+
+
+def mark_seen(marketplace, asin):
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute(_q('''
+            INSERT INTO scan_seen (marketplace, asin, last_scanned_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT (marketplace, asin) DO UPDATE SET
+                last_scanned_at=EXCLUDED.last_scanned_at
+        '''), (marketplace, asin, datetime.utcnow().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def reset_db():
     """Drop and recreate all tables (schema reset)."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     c = conn.cursor()
     try:
         c.execute("DROP TABLE IF EXISTS discovered_products")
         c.execute("DROP TABLE IF EXISTS user_preferences")
+        c.execute("DROP TABLE IF EXISTS search_jobs")
+        c.execute("DROP TABLE IF EXISTS scanner_state")
+        c.execute("DROP TABLE IF EXISTS category_baselines")
+        c.execute("DROP TABLE IF EXISTS scan_seen")
         conn.commit()
     finally:
         conn.close()

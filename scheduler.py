@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 from creators_search import CreatorsSearch
 from keepa_service import KeepaService
@@ -39,6 +40,11 @@ class DealScheduler:
 
         self.min_ai_score = config.get("ai", {}).get("minimum_score", 7)
         self.basic_mode = bool(config.get("creators", {}).get("basic_mode", False))
+        # How many items to enrich (AI scoring) in parallel per page
+        try:
+            self.max_workers = max(1, int((config.get("scanner") or {}).get("max_parallel_requests", 5)))
+        except Exception:
+            self.max_workers = 5
 
     def search_for_user(self, user_id: str, keywords: str, marketplaces: list,
                         pages: int, min_saving: int, max_price: float,
@@ -54,6 +60,10 @@ class DealScheduler:
         self.stats.last_scan_time = datetime.now().isoformat()
         saved = []
 
+        # Keepa only runs when enabled AND a client was created (api key present)
+        keepa_enabled = self.config.get("keepa", {}).get("enabled", True)
+        keepa_active = bool(keepa_enabled and self.keepa)
+
         for mk in marketplaces:
             try:
                 self.searcher.marketplace = mk
@@ -61,6 +71,7 @@ class DealScheduler:
                     self.searcher._load_credentials()
                 except Exception:
                     pass
+                mk_domain = "GB" if str(mk).upper() in ("GB", "UK") else str(mk).upper()
 
                 for page in range(1, pages + 1):
                     try:
@@ -73,13 +84,65 @@ class DealScheduler:
                         if sort_by:
                             search_kwargs["sort_by"] = sort_by
                         items = self.searcher.search_items(**search_kwargs)
-                        for item in items:
-                            item = dict(item)
-                            item["_marketplace"] = mk
-                            item["_page"] = page
-                            product = self._process_item(user_id, item, filters=filters)
-                            if product:
-                                saved.append(product)
+                        if not items:
+                            continue
+
+                        # Normalize once and tag with marketplace/page context
+                        norm_items = []
+                        for raw in items:
+                            try:
+                                n = self.searcher._normalize_item(raw)
+                                if not isinstance(n, dict):
+                                    n = dict(raw)
+                            except Exception:
+                                n = dict(raw)
+                            n["_marketplace"] = mk
+                            n["_page"] = page
+                            norm_items.append(n)
+
+                        # Batch all Keepa lookups for this page up front (1 request
+                        # per 100 ASINs instead of one request per item).
+                        keepa_map, rating_map = {}, {}
+                        if keepa_active:
+                            pairs, seller_ids = [], []
+                            for n in norm_items:
+                                asin = n.get("ASIN")
+                                listing = self._first_listing(n)
+                                price = DealFilters.extract_price(listing) if listing else None
+                                if asin and price is not None:
+                                    pairs.append((asin, price))
+                                sid = DealFilters.extract_seller(listing).get("seller_id")
+                                if sid:
+                                    seller_ids.append(sid)
+                            try:
+                                keepa_map = self.keepa.validate_deals_batch(pairs, domain=mk_domain)
+                            except Exception as e:
+                                logger.error(f"[SCHEDULER] Keepa batch error: {e}")
+                            try:
+                                rating_map = self.keepa.get_seller_ratings_batch(seller_ids, domain=mk_domain)
+                            except Exception as e:
+                                logger.warning(f"[SCHEDULER] Seller rating batch error: {e}")
+
+                        # Finalize each item (AI scoring, filtering, save) in parallel.
+                        def _finalize(n):
+                            try:
+                                asin = n.get("ASIN")
+                                sid = DealFilters.extract_seller(self._first_listing(n)).get("seller_id")
+                                kd = keepa_map.get(asin) if keepa_active else None
+                                sr = (rating_map.get(sid) if keepa_active else 0)
+                                return self._process_item(
+                                    user_id, n, filters=filters,
+                                    keepa_data=kd, seller_rating=sr, keepa_active=keepa_active,
+                                )
+                            except Exception as e:
+                                logger.error(f"[SCHEDULER] Finalize error: {e}")
+                                return None
+
+                        workers = max(1, min(self.max_workers, len(norm_items)))
+                        with ThreadPoolExecutor(max_workers=workers) as ex:
+                            for product in ex.map(_finalize, norm_items):
+                                if product:
+                                    saved.append(product)
                     except Exception as e:
                         logger.error(f"[SCHEDULER] {mk} page {page} error: {e}")
             except Exception as e:
@@ -89,8 +152,19 @@ class DealScheduler:
         self.stats.log_summary()
         return saved
 
-    def _process_item(self, user_id: str, item: dict, filters: dict = None):
-        """Process a single item for a specific user. Returns product dict or None."""
+    @staticmethod
+    def _first_listing(item: dict) -> dict:
+        listings = (item.get("OffersV2", {}) or {}).get("Listings", []) or []
+        return listings[0] if listings else {}
+
+    def _process_item(self, user_id: str, item: dict, filters: dict = None,
+                      keepa_data: dict = None, seller_rating=None, keepa_active: bool = None):
+        """Process a single item for a specific user. Returns product dict or None.
+
+        Keepa data may be passed in pre-fetched (batched) via `keepa_data` /
+        `seller_rating` / `keepa_active`. When `keepa_active` is None the method
+        falls back to fetching Keepa itself (legacy per-item path).
+        """
         ctx_marketplace = item.get("_marketplace")
         ctx_page = item.get("_page")
 
@@ -134,33 +208,34 @@ class DealScheduler:
 
         mk_ctx = item.get("_marketplace") or self.config.get("amazon", {}).get("marketplace", "DE")
         keepa_domain = "GB" if str(mk_ctx).upper() in ("GB", "UK") else str(mk_ctx).upper()
-        keepa_enabled = self.config.get("keepa", {}).get("enabled", True)
-        # Keepa only actually runs when enabled AND a client was created (api key present)
-        keepa_active = bool(keepa_enabled and self.keepa)
 
-        keepa_data = None
-        try:
-            if keepa_active and price is not None:
-                keepa_data = self.keepa.validate_deal(asin, price, domain=keepa_domain)
-        except Exception as e:
-            logger.warning(f"[SCHEDULER] Keepa error for {asin}: {e}")
-
-        if keepa_data:
-            self.stats.keepa_passed += 1
-        elif keepa_enabled:
-            self.stats.keepa_failed += 1
+        # Legacy per-item path: no pre-fetched Keepa data was passed in, so fetch it here.
+        if keepa_active is None:
+            keepa_enabled = self.config.get("keepa", {}).get("enabled", True)
+            keepa_active = bool(keepa_enabled and self.keepa)
+            try:
+                if keepa_active and price is not None:
+                    keepa_data = self.keepa.validate_deal(asin, price, domain=keepa_domain)
+            except Exception as e:
+                logger.warning(f"[SCHEDULER] Keepa error for {asin}: {e}")
+            try:
+                if keepa_active and seller_data.get("seller_id"):
+                    seller_rating = self.keepa.get_seller_rating(
+                        seller_data["seller_id"], domain=keepa_domain
+                    )
+            except Exception as e:
+                logger.warning(f"[SCHEDULER] Seller rating error: {e}")
 
         # Seller rating only comes from Keepa. When Keepa is off, default to 0
         # so the field is always numeric (never None) and a "min rating ≥ 0"
         # filter still lets everything through.
-        seller_rating = None if keepa_active else 0
-        try:
-            if keepa_active and seller_data.get("seller_id"):
-                seller_rating = self.keepa.get_seller_rating(
-                    seller_data["seller_id"], domain=keepa_domain
-                )
-        except Exception as e:
-            logger.warning(f"[SCHEDULER] Seller rating error: {e}")
+        if not keepa_active:
+            seller_rating = 0
+
+        if keepa_data:
+            self.stats.keepa_passed += 1
+        elif keepa_active:
+            self.stats.keepa_failed += 1
 
         mk_out = item.get("_marketplace") or self.config.get("amazon", {}).get("marketplace", "DE")
         savings_val = DealFilters.extract_savings_percent(listing)

@@ -20,8 +20,9 @@ let sessionApiCalls = 0;
 
 // ============= RENDER =============
 
-function renderProducts(products) {
-    const container = document.getElementById('products');
+function renderProducts(products, containerId = 'products') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     if (!products || products.length === 0) {
         container.innerHTML = '<p class="loading">No products discovered yet — run a search above</p>';
         return;
@@ -242,14 +243,12 @@ async function runSearch() {
             return;
         }
 
-        if (data.success) {
-            sessionApiCalls += data.api_calls || 0;
-            statusEl.textContent = `✅ Done — ${data.found} new deal(s) found.`;
-            await refreshProducts();
-            await refreshStats();
-        } else {
+        if (!data.success) {
             statusEl.textContent = `❌ Search failed: ${data.error || 'Unknown error'}`;
+            return;
         }
+        // Search now runs in the background; poll for results as they're saved.
+        await pollSearch(statusEl);
     } catch (e) {
         console.error('Search error:', e);
         statusEl.textContent = `❌ Error: ${e.message}`;
@@ -257,6 +256,40 @@ async function runSearch() {
         btn.disabled    = false;
         btn.textContent = '🔍 Search';
     }
+}
+
+// Poll the background search: refresh the grid each tick so new deals show up
+// as they're processed, and stop when the job reports done/error.
+async function pollSearch(statusEl) {
+    const uid = getUserId();
+    const startCount = currentProducts.length;
+    const deadline = Date.now() + 10 * 60 * 1000;  // safety cap: 10 min
+
+    while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 2500));
+        await refreshProducts();
+        await refreshStats();
+
+        let job = {};
+        try {
+            const res = await fetch(`/api/search_status?user_id=${encodeURIComponent(uid)}`);
+            job = await res.json();
+        } catch { /* transient — keep polling */ }
+
+        if (job.status === 'done') {
+            sessionApiCalls += job.api_calls || 0;
+            await refreshStats();
+            statusEl.textContent = `✅ Done — ${job.found ?? 0} new deal(s) found.`;
+            return;
+        }
+        if (job.status === 'error') {
+            statusEl.textContent = `❌ Search failed: ${job.error || 'Unknown error'}`;
+            return;
+        }
+        const newCount = Math.max(0, currentProducts.length - startCount);
+        statusEl.textContent = `⏳ Searching — ${newCount} new deal(s) so far…`;
+    }
+    statusEl.textContent = '⏱️ Still running in the background — results will keep appearing below.';
 }
 
 // ============= CLEAR =============
@@ -470,6 +503,114 @@ function toggleTestPanel() {
 
 // ============= INIT =============
 
+// ============= LIVE FEED TAB =============
+
+let feedProducts   = [];
+let feedFilter     = '';
+let feedPollTimer  = null;
+let scannerEnabled = true;
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.tab === tab));
+    document.getElementById('tab-search').style.display = (tab === 'search') ? '' : 'none';
+    document.getElementById('tab-feed').style.display   = (tab === 'feed')   ? '' : 'none';
+
+    if (tab === 'feed') {
+        refreshFeed();
+        refreshScannerStatus();
+        if (!feedPollTimer) {
+            feedPollTimer = setInterval(() => { refreshFeed(); refreshScannerStatus(); }, 5000);
+        }
+    } else if (feedPollTimer) {
+        clearInterval(feedPollTimer);
+        feedPollTimer = null;
+    }
+}
+
+async function refreshFeed() {
+    try {
+        const res = await fetch('/api/feed');
+        feedProducts = (await res.json()) || [];
+        renderFeed();
+    } catch (e) {
+        console.error('Feed error:', e);
+    }
+}
+
+function renderFeed() {
+    let list = feedProducts;
+    if (feedFilter) {
+        const q = feedFilter.toLowerCase();
+        list = list.filter(p =>
+            (p.title    || '').toLowerCase().includes(q) ||
+            (p.asin     || '').toLowerCase().includes(q) ||
+            (p.category || '').toLowerCase().includes(q));
+    }
+    renderProducts(list, 'feed-products');
+}
+
+function filterFeed() {
+    feedFilter = document.getElementById('feed-filter-input')?.value || '';
+    renderFeed();
+}
+
+function _ago(iso) {
+    if (!iso) return 'never';
+    const secs = Math.max(0, (Date.now() - new Date(iso + 'Z').getTime()) / 1000);
+    if (secs < 60)   return `${Math.round(secs)}s ago`;
+    if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+    return `${Math.round(secs / 3600)}h ago`;
+}
+
+async function refreshScannerStatus() {
+    try {
+        const res = await fetch('/api/scanner_status');
+        const s = await res.json();
+        scannerEnabled = !!(s.enabled ?? 1);
+
+        document.getElementById('feed_total').textContent   = s.feed_total   ?? 0;
+        document.getElementById('feed_scanned').textContent = s.scanned_count ?? 0;
+        document.getElementById('feed_kept').textContent    = s.kept_count    ?? 0;
+        document.getElementById('feed_posted').textContent  = s.feed_posted   ?? 0;
+
+        const toggle = document.getElementById('scanner-toggle');
+        if (toggle) toggle.textContent = scannerEnabled ? '⏸ Pause' : '▶ Resume';
+
+        const heartbeatAge = _ago(s.last_heartbeat);
+        const live = s.last_heartbeat &&
+            (Date.now() - new Date(s.last_heartbeat + 'Z').getTime()) < 90000;
+        let txt;
+        if (!scannerEnabled) {
+            txt = '⏸ Scanner paused.';
+        } else if (live) {
+            txt = `🟢 Scanning — ${s.current_target || '…'} · last tick ${heartbeatAge}`;
+        } else {
+            txt = `⚪ Idle / worker not running (last heartbeat ${heartbeatAge}).`;
+        }
+        if (s.last_error) txt += ` · ⚠️ ${s.last_error}`;
+        document.getElementById('scanner-status').textContent = txt;
+    } catch (e) {
+        console.error('Scanner status error:', e);
+    }
+}
+
+async function toggleScanner() {
+    const action = scannerEnabled ? 'pause' : 'resume';
+    try {
+        await fetch('/api/scanner_control', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ action }),
+        });
+        await refreshScannerStatus();
+    } catch (e) {
+        console.error('Scanner control error:', e);
+    }
+}
+
+// ============= INIT =============
+
 (async function initDashboard() {
     try {
         await loadPreferences();
@@ -492,3 +633,6 @@ window.sortProducts    = sortProducts;
 window.filterProducts  = filterProducts;
 window.runTest         = runTest;
 window.toggleTestPanel = toggleTestPanel;
+window.switchTab       = switchTab;
+window.filterFeed      = filterFeed;
+window.toggleScanner   = toggleScanner;

@@ -14,6 +14,15 @@
         <p>Search Amazon for deals with your own keywords — results are saved just for you</p>
     </header>
 
+    <!-- Tab navigation -->
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="search" onclick="switchTab('search')">🔍 Search</button>
+        <button class="tab-btn" data-tab="feed" onclick="switchTab('feed')">📡 Live Feed</button>
+    </div>
+
+    <!-- ============ SEARCH TAB ============ -->
+    <div id="tab-search" class="tab-panel">
+
     <!-- Search panel -->
     <div class="control-panel">
         <div class="search-row">
@@ -225,9 +234,53 @@
         </div>
     </div>
 
+    </div><!-- /tab-search -->
+
+    <!-- ============ LIVE FEED TAB ============ -->
+    <div id="tab-feed" class="tab-panel" style="display:none;">
+        <div class="control-panel">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2 style="margin:0 0 4px;">📡 Live Discovery Feed</h2>
+                    <p style="margin:0; color:#9aa;">A background scanner continuously sweeps categories &amp; keywords, validates real discounts against Keepa's 90-day average (scaled per category), and posts new finds here.</p>
+                </div>
+                <button class="btn btn-secondary" id="scanner-toggle" onclick="toggleScanner()">⏸ Pause</button>
+            </div>
+            <div id="scanner-status" class="search-status" style="margin-top:12px;">Loading scanner status…</div>
+            <div class="stats-grid" style="margin-top:12px;">
+                <div class="stat-card">
+                    <div class="stat-label">Feed Size</div>
+                    <div class="stat-value" id="feed_total">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Scanned</div>
+                    <div class="stat-value" id="feed_scanned">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Kept</div>
+                    <div class="stat-value" id="feed_kept">0</div>
+                </div>
+                <div class="stat-card" title="Posted to Discord">
+                    <div class="stat-label">Posted</div>
+                    <div class="stat-value" id="feed_posted">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="products-section">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <h2>🌍 Global Discoveries</h2>
+                <input id="feed-filter-input" type="text" placeholder="Filter by title, ASIN, category…" oninput="filterFeed()" style="padding:7px 10px;border-radius:4px;border:1px solid #667eea;background:#1a1a2e;color:#fff;width:220px;">
+            </div>
+            <div id="feed-products" class="products-grid">
+                <p class="loading">Waiting for the scanner to find deals…</p>
+            </div>
+        </div>
+    </div><!-- /tab-feed -->
+
 </div>
 
-<script src="/static/app.js?v=12"></script>
+<script src="/static/app.js?v=14"></script>
 
 </body>
 </html>

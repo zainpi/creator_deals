@@ -44,6 +44,36 @@ header p {
     color: #b0b0b0;
 }
 
+/* ==================== Tabs ==================== */
+
+.tab-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #b0b0b0;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.tab-btn:hover {
+    color: #fff;
+}
+
+.tab-btn.active {
+    color: #00d4ff;
+    border-bottom-color: #00d4ff;
+}
+
 /* ==================== Control Panel ==================== */
 
 .control-panel {
