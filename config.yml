@@ -66,11 +66,13 @@ scanner:
 # Category-aware pricing brain for the continuous scanner.
 # The Keepa euro-off threshold scales with each category's learned typical price.
 pricing:
-  min_euro_off_default: 50      # cold-start / top-tier euro floor (e.g. electronics)
+  # An item is kept if EITHER it's a big absolute euro drop OR a strong relative % drop.
+  min_drop_percent: 20          # category-relative path: >= this % below the 90-day avg
+  min_euro_off_default: 50      # absolute path / cold-start top-tier euro floor (electronics)
   min_euro_off_floor: 8         # cheapest categories never require less than this
-  euro_off_pct_of_typical: 0.15 # scaled threshold = typical_avg90 * this (clamped to floor..default)
-  min_baseline_samples: 5       # Keepa samples before a category is considered "learned"
-  worth_keepa_factor: 0.6       # pre-filter tightness: skip Keepa unless price is this close to a deal
+  euro_off_pct_of_typical: 0.15 # scaled euro threshold = typical_avg90 * this (clamped to floor..default)
+  min_baseline_samples: 3       # Keepa samples before a category is considered "learned"
+  worth_keepa_factor: 0.6       # (legacy) pre-filter tightness; pre-filter now just checks below-typical
 
 # Seller rules
 seller:

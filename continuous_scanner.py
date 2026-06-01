@@ -55,8 +55,13 @@ class ContinuousScanner:
         self.min_euro_off_default = float(pricing_cfg.get("min_euro_off_default", 50))
         self.min_euro_off_floor = float(pricing_cfg.get("min_euro_off_floor", 8))
         self.euro_off_pct = float(pricing_cfg.get("euro_off_pct_of_typical", 0.15))
-        self.min_baseline_samples = int(pricing_cfg.get("min_baseline_samples", 5))
+        self.min_baseline_samples = int(pricing_cfg.get("min_baseline_samples", 3))
         self.worth_keepa_factor = float(pricing_cfg.get("worth_keepa_factor", 0.6))
+        # Category-relative path: keep an item if it's at least this % below its
+        # Keepa 90-day average, regardless of category or learned baseline. This is
+        # what lets cheap-category deals through (a 20% drop is good for a toy even
+        # though it's nowhere near €50 off).
+        self.min_drop_percent = float(pricing_cfg.get("min_drop_percent", 20))
 
         set_blocked_categories(config)
 
@@ -132,12 +137,14 @@ class ContinuousScanner:
 
     def _worth_keepa(self, baseline, current_price):
         """Cheap pre-filter: only spend a Keepa lookup if the price is plausibly a
-        good deal for this category. Cold start (immature baseline) -> always check."""
+        good deal for this category. Cold start (immature baseline) -> always check.
+        Otherwise check anything priced at or below the category's typical 90d avg."""
         if not baseline or baseline.get("sample_count", 0) < self.min_baseline_samples:
             return True
         typical = baseline.get("avg90_mean") or 0
-        required = self._required_euro_off(baseline)
-        return current_price <= typical - required * self.worth_keepa_factor
+        if typical <= 0:
+            return True
+        return current_price <= typical
 
     # --------------------------------------------------------------- scan tick
 
@@ -230,6 +237,7 @@ class ContinuousScanner:
 
         # ---- gate + AI + save ----
         kept_this_tick = 0
+        best_drop, best_eur = 0.0, 0.0   # near-miss tracking for tuning visibility
         for norm, asin, price, listing, category, seller_id in candidates:
             kd = keepa_map.get(asin) if self.keepa_active else None
 
@@ -242,8 +250,14 @@ class ContinuousScanner:
                 self._fold_baseline(baselines, category, avg90)
 
                 euro_off = avg90 - price
-                required = self._required_euro_off(baselines.get(category))
-                if euro_off < required:
+                drop_pct = kd.get("drop_percent")
+                if drop_pct is None:
+                    drop_pct = (euro_off / avg90 * 100) if avg90 else 0
+                required_eur = self._required_euro_off(baselines.get(category))
+                # Keep on EITHER a big absolute euro drop OR a strong category-relative %.
+                if not (euro_off >= required_eur or drop_pct >= self.min_drop_percent):
+                    best_drop = max(best_drop, drop_pct)
+                    best_eur = max(best_eur, euro_off)
                     continue
 
             product = self._build_product(norm, asin, price, listing, category, kd,
@@ -269,8 +283,12 @@ class ContinuousScanner:
             kept_count=self.kept_total,
             last_heartbeat=datetime.utcnow().isoformat(),
         )
-        logger.info(f"[SCANNER] tick {tick}: {len(items or [])} items, "
-                    f"{len(candidates)} candidates, {kept_this_tick} kept")
+        msg = (f"[SCANNER] tick {tick}: {len(items or [])} items, "
+               f"{len(candidates)} candidates, {kept_this_tick} kept")
+        if candidates and kept_this_tick == 0 and self.keepa_active:
+            msg += (f" — best near-miss {best_drop:.0f}% / €{best_eur:.0f} off "
+                    f"(need {self.min_drop_percent:.0f}% or scaled €)")
+        logger.info(msg)
         return target
 
     def _build_product(self, norm, asin, price, listing, category, kd, seller_rating):
