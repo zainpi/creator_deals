@@ -33,6 +33,10 @@ def _connect():
         conn = psycopg2.connect(DATABASE_URL, sslmode=os.getenv("PGSSLMODE", "require"))
         conn.autocommit = True  # explicit commit() calls below become harmless no-ops
         return conn
+    # SQLite: ensure the parent directory exists (the DB file is gitignored)
+    d = os.path.dirname(DB_PATH)
+    if d:
+        os.makedirs(d, exist_ok=True)
     return sqlite3.connect(DB_PATH, timeout=30)
 
 
