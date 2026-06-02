@@ -60,6 +60,7 @@ scanner:
   pages_to_search: 5                  # max page per (index, keyword) combo
   scan_interval_seconds: 15           # delay between scan ticks (worker loop)
   cooldown_hours: 48                  # don't re-Keepa the same ASIN within this window
+  min_api_saving_percent: 20          # only pull listings already >= this % off list price
   marketplaces: [DE, GB, FR, ES, IT]  # marketplaces the continuous scanner rotates through
   sort_rotation: [Featured, "Price:LowToHigh", NewestArrivals]
 

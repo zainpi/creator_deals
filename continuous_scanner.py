@@ -51,6 +51,9 @@ class ContinuousScanner:
         self.pages_to_search = max(1, int(scanner_cfg.get("pages_to_search", 5)))
         self.scan_interval = max(1, int(scanner_cfg.get("scan_interval_seconds", 15)))
         self.cooldown_hours = float(scanner_cfg.get("cooldown_hours", 48))
+        # Ask the Creators API for items already discounted vs their list price, so we
+        # surface candidates worth Keepa-validating instead of full-price catalog items.
+        self.min_api_saving_percent = max(1, int(scanner_cfg.get("min_api_saving_percent", 20)))
 
         self.min_euro_off_default = float(pricing_cfg.get("min_euro_off_default", 50))
         self.min_euro_off_floor = float(pricing_cfg.get("min_euro_off_floor", 8))
@@ -177,7 +180,7 @@ class ContinuousScanner:
                 search_index=target["search_index"],
                 sort_by=target["sort_by"],
                 keywords=target["keyword"],
-                min_saving_percent=1,      # API minimum is 1; we gate for real via Keepa, not API %
+                min_saving_percent=self.min_api_saving_percent,  # only already-discounted listings
                 max_price=100000.0,
             )
         except Exception as e:
