@@ -52,9 +52,7 @@ function renderProducts(products, containerId = 'products') {
         const href      = `https://www.amazon.${tld}/dp/${asin}`;
         const pageFound = typeof p.page_found === 'number' && !isNaN(p.page_found) ? p.page_found : null;
 
-        // Determine was-price + discount % from best available source:
-        // 1. API savings_percent → back-calculate was-price
-        // 2. keepa_avg_90 (90-day average) → use as was-price directly
+        // Was-price: prefer API savings_percent back-calc, else keepa_avg_90
         let wasPrice    = null;
         let discountPct = null;
 
@@ -66,18 +64,21 @@ function renderProducts(products, containerId = 'products') {
             }
         }
         if (wasPrice === null && hasAvg90 && hasPrice) {
-            const avg = parseFloat(p.keepa_avg_90);
-            if (avg > p.current_price) {
-                wasPrice    = avg;
-                discountPct = hasDrop ? Math.round(parseFloat(p.keepa_drop_percent)) : Math.round((avg - p.current_price) / avg * 100);
-            }
+            wasPrice = parseFloat(p.keepa_avg_90);
+        }
+        // Discount %: prefer hasDrop (Keepa), else derive from was-price
+        if (hasDrop) {
+            discountPct = Math.round(parseFloat(p.keepa_drop_percent));
+        } else if (wasPrice !== null && hasPrice && wasPrice > p.current_price) {
+            discountPct = Math.round((wasPrice - p.current_price) / wasPrice * 100);
         }
 
-        const origPriceHtml  = wasPrice !== null ? `<span class="old-price">${cur}${wasPrice.toFixed(2)}</span>` : '';
-        const discountBadge  = discountPct !== null && discountPct > 0
+        const origPriceHtml = wasPrice !== null ? `<span class="old-price">${cur}${wasPrice.toFixed(2)}</span>` : '';
+        const discountBadge = discountPct !== null && discountPct > 0
             ? `<span class="badge" style="background:linear-gradient(135deg,#e53e3e,#c53030);margin-left:0;">-${discountPct}%</span>`
             : '';
-        const price          = hasPrice ? `${cur}${p.current_price.toFixed(2)}` : 'N/A';
+        const avg90Label    = hasAvg90 ? `<span class="metric" title="Keepa 90-day average price" style="color:#9aa;font-size:0.85em;">90d avg: ${cur}${parseFloat(p.keepa_avg_90).toFixed(2)}</span>` : '';
+        const price         = hasPrice ? `${cur}${p.current_price.toFixed(2)}` : 'N/A';
 
         html += `
             <div class="product-card">
@@ -97,6 +98,7 @@ function renderProducts(products, containerId = 'products') {
                             ${origPriceHtml ? origPriceHtml + ' → ' : ''}${hasPrice ? price : 'N/A'}
                             ${discountBadge}
                         </span>
+                        ${avg90Label}
                         <span class="metric" title="AI score${p.ai_reason ? ' — ' + String(p.ai_reason).substring(0, 80) : ''}">⭐ ${score}</span>
                         ${pageFound !== null ? `<span class="metric" title="Search page">🗂 p${pageFound}</span>` : ''}
                         <span class="metric posted" title="Posted to Discord">${posted}</span>
