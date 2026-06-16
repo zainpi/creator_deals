@@ -28,42 +28,56 @@ function renderProducts(products, containerId = 'products') {
         return;
     }
 
-    const tldMap  = { DE: 'de', GB: 'co.uk', UK: 'co.uk', FR: 'fr', IT: 'it', ES: 'es' };
-    const flagMap = { DE: '🇩🇪', GB: '🇬🇧', UK: '🇬🇧', FR: '🇫🇷', IT: '🇮🇹', ES: '🇪🇸' };
+    const tldMap      = { DE: 'de', GB: 'co.uk', UK: 'co.uk', FR: 'fr', IT: 'it', ES: 'es' };
+    const flagMap     = { DE: '🇩🇪', GB: '🇬🇧', UK: '🇬🇧', FR: '🇫🇷', IT: '🇮🇹', ES: '🇪🇸' };
+    const currencyMap = { DE: '€', FR: '€', IT: '€', ES: '€', GB: '£', UK: '£' };
 
     let html = '';
     products.forEach(p => {
         const asin      = p.asin || 'N/A';
         const title     = (p.title || 'Unknown').substring(0, 60);
         const hasPrice  = typeof p.current_price === 'number';
-        const price     = hasPrice ? `€${p.current_price.toFixed(2)}` : 'N/A';
-        const hasSavings = p.savings_percent !== null && p.savings_percent !== undefined && !isNaN(p.savings_percent);
-        const savings   = hasSavings ? `${parseInt(p.savings_percent, 10)}%` : 'N/A';
-        const hasDrop   = p.keepa_drop_percent !== null && p.keepa_drop_percent !== undefined && !isNaN(p.keepa_drop_percent);
-        const drop      = hasDrop ? `${parseFloat(p.keepa_drop_percent).toFixed(0)}%` : 'N/A';
         const hasAvg90  = p.keepa_avg_90 !== null && p.keepa_avg_90 !== undefined && !isNaN(p.keepa_avg_90);
-        const avg90     = hasAvg90 ? `€${parseFloat(p.keepa_avg_90).toFixed(2)}` : null;
-        const score      = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(1)}/10` : 'N/A';
-        const seller     = p.seller_name || 'Unknown';
-        const posted     = p.posted ? '✅' : '❌';
-        const hasRating  = p.seller_rating !== null && p.seller_rating !== undefined && !isNaN(p.seller_rating);
+        const hasDrop   = p.keepa_drop_percent !== null && p.keepa_drop_percent !== undefined && !isNaN(p.keepa_drop_percent);
+        const hasSavings = p.savings_percent !== null && p.savings_percent !== undefined && !isNaN(p.savings_percent);
+        const score     = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(1)}/10` : 'N/A';
+        const seller    = p.seller_name || 'Unknown';
+        const posted    = p.posted ? '✅' : '❌';
+        const hasRating = p.seller_rating !== null && p.seller_rating !== undefined && !isNaN(p.seller_rating);
         const sellerRating = hasRating ? `${parseFloat(p.seller_rating).toFixed(0)}%` : null;
         const image     = p.image ? `<img src="${p.image}" alt="${asin}">` : '';
         const tld       = tldMap[p.marketplace]  || 'de';
         const flag      = flagMap[p.marketplace] || '🌍';
+        const cur       = currencyMap[p.marketplace] || '€';
         const href      = `https://www.amazon.${tld}/dp/${asin}`;
         const pageFound = typeof p.page_found === 'number' && !isNaN(p.page_found) ? p.page_found : null;
 
-        let origPriceHtml = '';
+        // Determine was-price + discount % from best available source:
+        // 1. API savings_percent → back-calculate was-price
+        // 2. keepa_avg_90 (90-day average) → use as was-price directly
+        let wasPrice    = null;
+        let discountPct = null;
+
         if (hasPrice && hasSavings) {
             const pct = parseInt(p.savings_percent, 10);
             if (pct > 0 && pct < 100) {
-                const orig = p.current_price / (1 - pct / 100);
-                if (isFinite(orig)) {
-                    origPriceHtml = `<span class="old-price" title="Estimated original price">€${orig.toFixed(2)}</span>`;
-                }
+                const calc = p.current_price / (1 - pct / 100);
+                if (isFinite(calc)) { wasPrice = calc; discountPct = pct; }
             }
         }
+        if (wasPrice === null && hasAvg90 && hasPrice) {
+            const avg = parseFloat(p.keepa_avg_90);
+            if (avg > p.current_price) {
+                wasPrice    = avg;
+                discountPct = hasDrop ? Math.round(parseFloat(p.keepa_drop_percent)) : Math.round((avg - p.current_price) / avg * 100);
+            }
+        }
+
+        const origPriceHtml  = wasPrice !== null ? `<span class="old-price">${cur}${wasPrice.toFixed(2)}</span>` : '';
+        const discountBadge  = discountPct !== null && discountPct > 0
+            ? `<span class="badge" style="background:linear-gradient(135deg,#e53e3e,#c53030);margin-left:0;">-${discountPct}%</span>`
+            : '';
+        const price          = hasPrice ? `${cur}${p.current_price.toFixed(2)}` : 'N/A';
 
         html += `
             <div class="product-card">
@@ -79,10 +93,10 @@ function renderProducts(products, containerId = 'products') {
                     </div>
                     <div class="product-category" title="Category">Category: ${p.category || 'Unknown'}</div>
                     <div class="product-metrics">
-                        <span class="metric" title="Current price">💶 ${origPriceHtml ? origPriceHtml + ' → ' : ''}${hasPrice ? price : 'N/A'}</span>
-                        ${hasAvg90 ? `<span class="metric metric-avg" title="Keepa 90-day average price">📈 ${avg90} avg</span>` : ''}
-                        ${hasSavings ? `<span class="metric" title="Savings">📊 ${savings} off</span>` : ''}
-                        ${hasDrop ? `<span class="metric" title="Drop from 90d avg">📉 ${drop} drop</span>` : ''}
+                        <span class="metric" title="Price">
+                            ${origPriceHtml ? origPriceHtml + ' → ' : ''}${hasPrice ? price : 'N/A'}
+                            ${discountBadge}
+                        </span>
                         <span class="metric" title="AI score${p.ai_reason ? ' — ' + String(p.ai_reason).substring(0, 80) : ''}">⭐ ${score}</span>
                         ${pageFound !== null ? `<span class="metric" title="Search page">🗂 p${pageFound}</span>` : ''}
                         <span class="metric posted" title="Posted to Discord">${posted}</span>
