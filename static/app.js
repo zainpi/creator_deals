@@ -132,7 +132,8 @@ function applyDisplayFilters(products) {
     const maxPrice    = parseFloat(document.getElementById('f_max_price')?.value          || '0');
 
     return products.filter(p => {
-        if (minSaving > 0 && (p.savings_percent == null || p.savings_percent < minSaving)) return false;
+        const effectiveDiscount = p.savings_percent != null ? p.savings_percent : p.keepa_drop_percent;
+        if (minSaving > 0 && (effectiveDiscount == null || effectiveDiscount < minSaving)) return false;
         if (minAI > 0 && (typeof p.ai_score !== 'number' || p.ai_score < minAI)) return false;
         if (minSeller > 0 && (p.seller_rating == null || p.seller_rating < minSeller)) return false;
         if (minPrice > 0 && (p.current_price == null || p.current_price < minPrice)) return false;
@@ -189,8 +190,63 @@ async function refreshProducts() {
 
 // ============= SEARCH =============
 
+// ============= AUTO-SEARCH TOGGLE =============
+
+let autoSearchTimer    = null;
+let autoSearchRunning  = false;
+let countdownInterval  = null;
+let searchInProgress   = false;
+
+function startCountdown(seconds) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    const statusEl = document.getElementById('search-status');
+    let remaining = seconds;
+    const tick = () => {
+        if (!autoSearchRunning) { clearInterval(countdownInterval); countdownInterval = null; return; }
+        const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const s = String(remaining % 60).padStart(2, '0');
+        statusEl.textContent = `⏳ Next search in ${m}:${s}`;
+        if (--remaining < 0) { clearInterval(countdownInterval); countdownInterval = null; }
+    };
+    tick();
+    countdownInterval = setInterval(tick, 1000);
+}
+
+async function toggleAutoSearch() {
+    const btn      = document.getElementById('search-btn');
+    const statusEl = document.getElementById('search-status');
+    if (autoSearchRunning) {
+        autoSearchRunning = false;
+        clearInterval(autoSearchTimer);
+        clearInterval(countdownInterval);
+        autoSearchTimer   = null;
+        countdownInterval = null;
+        btn.textContent = '▶ Start';
+        btn.classList.remove('btn-stop');
+        btn.classList.add('btn-start');
+        statusEl.textContent = '⏹ Auto-search stopped.';
+    } else {
+        autoSearchRunning = true;
+        btn.textContent = '⏹ Stop';
+        btn.classList.remove('btn-start');
+        btn.classList.add('btn-stop');
+
+        const doRun = async () => {
+            if (!autoSearchRunning || searchInProgress) return;
+            searchInProgress = true;
+            await runSearch();
+            searchInProgress = false;
+            if (autoSearchRunning) startCountdown(300);
+        };
+
+        await doRun();
+        if (autoSearchRunning) {
+            autoSearchTimer = setInterval(doRun, 5 * 60 * 1000);
+        }
+    }
+}
+
 async function runSearch() {
-    const btn = document.getElementById('search-btn');
     const statusEl = document.getElementById('search-status');
 
     const keywords   = (document.getElementById('amazon_keywords')?.value || '').trim();
@@ -207,9 +263,7 @@ async function runSearch() {
     // Persist current settings on every search so they stick for next time.
     await savePreferences(true);
 
-    btn.disabled    = true;
-    btn.textContent = '⏳ Searching…';
-    statusEl.textContent = `Searching ${markets.join(', ')} — ${pages} page(s)…`;
+    statusEl.textContent = `🔍 Searching ${markets.join(', ')} — ${pages} page(s)…`;
 
     try {
         const res  = await fetch('/api/search', {
@@ -252,9 +306,6 @@ async function runSearch() {
     } catch (e) {
         console.error('Search error:', e);
         statusEl.textContent = `❌ Error: ${e.message}`;
-    } finally {
-        btn.disabled    = false;
-        btn.textContent = '🔍 Search';
     }
 }
 
@@ -510,23 +561,7 @@ let feedFilter     = '';
 let feedPollTimer  = null;
 let scannerEnabled = true;
 
-function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.tab === tab));
-    document.getElementById('tab-search').style.display = (tab === 'search') ? '' : 'none';
-    document.getElementById('tab-feed').style.display   = (tab === 'feed')   ? '' : 'none';
-
-    if (tab === 'feed') {
-        refreshFeed();
-        refreshScannerStatus();
-        if (!feedPollTimer) {
-            feedPollTimer = setInterval(() => { refreshFeed(); refreshScannerStatus(); }, 5000);
-        }
-    } else if (feedPollTimer) {
-        clearInterval(feedPollTimer);
-        feedPollTimer = null;
-    }
-}
+function switchTab() {} // no-op; tabs removed
 
 async function refreshFeed() {
     try {
@@ -619,6 +654,10 @@ async function toggleScanner() {
     }
     await refreshProducts();
     await refreshStats();
+    // Start live feed polling immediately (no tab switch needed)
+    refreshFeed();
+    refreshScannerStatus();
+    feedPollTimer = setInterval(() => { refreshFeed(); refreshScannerStatus(); }, 5000);
     // Refresh products every 30s in case another tab ran a search
     setInterval(refreshProducts, 30000);
     setInterval(refreshStats,    15000);
@@ -626,6 +665,7 @@ async function toggleScanner() {
 
 // ============= EXPORTS =============
 
+window.toggleAutoSearch = toggleAutoSearch;
 window.runSearch       = runSearch;
 window.savePreferences = savePreferences;
 window.clearProducts   = clearProducts;

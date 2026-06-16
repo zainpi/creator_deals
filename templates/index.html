@@ -14,14 +14,7 @@
         <p>Search Amazon for deals with your own keywords — results are saved just for you</p>
     </header>
 
-    <!-- Tab navigation -->
-    <div class="tab-nav">
-        <button class="tab-btn active" data-tab="search" onclick="switchTab('search')">🔍 Search</button>
-        <button class="tab-btn" data-tab="feed" onclick="switchTab('feed')">📡 Live Feed</button>
-    </div>
-
-    <!-- ============ SEARCH TAB ============ -->
-    <div id="tab-search" class="tab-panel">
+    <div id="tab-search">
 
     <!-- Search panel -->
     <div class="control-panel">
@@ -66,7 +59,7 @@
             </div>
             <div class="search-actions">
                 <button class="btn btn-secondary" onclick="savePreferences()">💾 Save</button>
-                <button class="btn btn-start" id="search-btn" onclick="runSearch()">🔍 Search</button>
+                <button class="btn btn-start" id="search-btn" onclick="toggleAutoSearch()">▶ Start</button>
                 <button class="btn btn-reset" onclick="clearProducts()">🗑 Clear</button>
             </div>
         </div>
@@ -236,37 +229,24 @@
 
     </div><!-- /tab-search -->
 
-    <!-- ============ LIVE FEED TAB ============ -->
-    <div id="tab-feed" class="tab-panel" style="display:none;">
+    <!-- ============ LIVE FEED (inline) ============ -->
+    <div id="tab-feed">
         <div class="control-panel">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
                 <div>
                     <h2 style="margin:0 0 4px;">📡 Live Discovery Feed</h2>
-                    <p style="margin:0; color:#9aa;">A background scanner continuously sweeps categories &amp; keywords, validates real discounts against Keepa's 90-day average (scaled per category), and posts new finds here.</p>
+                    <p style="margin:0; color:#9aa;">Background scanner — validates discounts against Keepa 90-day average and posts new finds here.</p>
                 </div>
                 <button class="btn btn-secondary" id="scanner-toggle" onclick="toggleScanner()">⏸ Pause</button>
             </div>
             <div id="scanner-status" class="search-status" style="margin-top:12px;">Loading scanner status…</div>
             <div class="stats-grid" style="margin-top:12px;">
-                <div class="stat-card">
-                    <div class="stat-label">Feed Size</div>
-                    <div class="stat-value" id="feed_total">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Scanned</div>
-                    <div class="stat-value" id="feed_scanned">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Kept</div>
-                    <div class="stat-value" id="feed_kept">0</div>
-                </div>
-                <div class="stat-card" title="Posted to Discord">
-                    <div class="stat-label">Posted</div>
-                    <div class="stat-value" id="feed_posted">0</div>
-                </div>
+                <div class="stat-card"><div class="stat-label">Feed Size</div><div class="stat-value" id="feed_total">0</div></div>
+                <div class="stat-card"><div class="stat-label">Scanned</div><div class="stat-value" id="feed_scanned">0</div></div>
+                <div class="stat-card"><div class="stat-label">Kept</div><div class="stat-value" id="feed_kept">0</div></div>
+                <div class="stat-card" title="Posted to Discord"><div class="stat-label">Posted</div><div class="stat-value" id="feed_posted">0</div></div>
             </div>
         </div>
-
         <div class="products-section">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <h2>🌍 Global Discoveries</h2>
@@ -280,7 +260,7 @@
 
 </div>
 
-<script src="/static/app.js?v=14"></script>
+<script src="/static/app.js?v=15"></script>
 
 </body>
 </html>
