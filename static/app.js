@@ -670,10 +670,10 @@ async function toggleScanner() {
     }
     await refreshProducts();
     await refreshStats();
-    // Start live feed polling immediately (no tab switch needed)
-    refreshFeed();
-    refreshScannerStatus();
-    feedPollTimer = setInterval(() => { refreshFeed(); refreshScannerStatus(); }, 5000);
+    // Live feed disabled
+    // refreshFeed();
+    // refreshScannerStatus();
+    // feedPollTimer = setInterval(() => { refreshFeed(); refreshScannerStatus(); }, 5000);
     // Refresh products every 30s in case another tab ran a search
     setInterval(refreshProducts, 30000);
     setInterval(refreshStats,    15000);
