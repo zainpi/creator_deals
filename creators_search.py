@@ -270,6 +270,9 @@ class CreatorsSearch:
         max_price: float,
         partner_tag: str | None,
         keywords: str,
+        browse_node_id: str | None = None,
+        min_price: float = 0.0,
+        item_count: int | None = None,
     ) -> dict:
         """
         One canonical camelCase payload.  No more 5-6 variants.
@@ -305,6 +308,17 @@ class CreatorsSearch:
             "keywords":           keywords,
             "resources":          self._get_resources(),
         }
+        # Category-ID search: restrict results to a browse node when supplied.
+        # (The catalog endpoint expects a string browseNodeId.)
+        if browse_node_id:
+            payload["browseNodeId"] = str(browse_node_id).strip()
+        # Minimum price floor (cents). Only sent when > 0 so the default search
+        # behaviour is unchanged.
+        if min_price and float(min_price) > 0:
+            payload["minPrice"] = int(float(min_price) * 100)  # cents
+        # How many items per page (API max is 10). Only sent when provided.
+        if item_count:
+            payload["itemCount"] = max(1, min(int(item_count), 10))
         # Only include deliveryFlags when non-empty (empty list = API ignores param)
         if df_list:
             payload["deliveryFlags"] = df_list
@@ -608,6 +622,8 @@ class CreatorsSearch:
         min_saving_percent: int = 50,
         max_price: float = 450.0,
         keywords: str | None = None,
+        browse_node_id: str | None = None,
+        min_price: float = 0.0,
     ) -> list[dict]:
         """
         Search Amazon via Creators API.
@@ -671,9 +687,15 @@ class CreatorsSearch:
 
         partner_tag = self._resolve_partner_tag()
 
+        # A browse node may also be pinned via config for the continuous scanner.
+        if not browse_node_id:
+            browse_node_id = (cfg_amz.get("browse_node_id") or None)
+
         payload        = self._build_payload(page, search_index, sort_by, condition,
                                              availability, min_saving_percent, max_price,
-                                             partner_tag, keywords)
+                                             partner_tag, keywords,
+                                             browse_node_id=browse_node_id,
+                                             min_price=min_price)
         payload_no_tag = {k: v for k, v in payload.items() if k != "partnerTag"}
 
         try:
@@ -724,6 +746,149 @@ class CreatorsSearch:
 
             # None = hard failure; try next endpoint
         return []
+
+    # =========================================================================
+    # Diagnostic search — returns the exact request + raw response as JSON
+    # =========================================================================
+
+    def diagnostic_search(
+        self,
+        *,
+        search_index: str = "All",
+        keywords: str = "",
+        browse_node_id: str | None = None,
+        sort_by: str = "Featured",
+        min_saving_percent: int = 0,
+        min_price: float = 0.0,
+        max_price: float = 450.0,
+        condition: str = "New",
+        availability: str = "Available",
+        item_page: int = 1,
+        item_count: int | None = None,
+    ) -> dict:
+        """
+        Fire a single SearchItems call and return EVERYTHING — the exact request
+        payload sent, the raw JSON the API returned, and the normalized items.
+
+        Unlike search_items(), this method does NOT apply config overrides or
+        force a rotated deal keyword: it sends exactly what the caller passes so
+        the JSON output faithfully reflects the inputs. No Keepa / AI enrichment.
+
+        Returns a dict shaped for a JSON UI:
+        {
+          "ok": bool,
+          "request":  {"url": ..., "headers": {...}, "payload": {...}},
+          "response": {"status": int, "endpoint": str, "raw": {...}|str,
+                       "item_count": int, "elapsed_ms": int},
+          "items": [ normalized items ],
+          "error": str | None,
+        }
+        """
+        result: dict = {
+            "ok": False,
+            "request": None,
+            "response": None,
+            "items": [],
+            "error": None,
+        }
+
+        partner_tag = self._resolve_partner_tag()
+        payload = self._build_payload(
+            page=int(item_page),
+            search_index=search_index or "All",
+            sort_by=sort_by or "Featured",
+            condition=condition or "New",
+            availability=availability or "Available",
+            min_saving_percent=int(min_saving_percent or 0),
+            max_price=float(max_price or 0),
+            partner_tag=partner_tag,
+            keywords=keywords or "",
+            browse_node_id=browse_node_id,
+            min_price=float(min_price or 0),
+            item_count=item_count,
+        )
+
+        # Rate-limit like a normal call so batch runs stay polite.
+        self._rate_limit_wait()
+
+        try:
+            token, cred_version = self._get_access_token()
+        except Exception as e:
+            result["error"] = f"Auth error: {e}"
+            result["request"] = {"url": None, "payload": payload}
+            return result
+
+        headers: dict = {
+            "Authorization": f"Bearer {token}",
+            "x-marketplace": f"www.amazon.{self._tld_for_marketplace(self.marketplace)}",
+            "Content-Type":  "application/json",
+            "Accept":        "application/json",
+            "User-Agent":    "CreatorsDealFinder/1.0",
+        }
+        if cred_version == "v2":
+            headers["X-Amz-Auth-Version"] = "2.1"
+
+        # Headers minus the bearer token (never expose the secret token to the UI)
+        safe_headers = {k: ("Bearer ***" if k == "Authorization" else v)
+                        for k, v in headers.items()}
+
+        last_status = None
+        last_endpoint = None
+        last_raw: object = None
+        for url in self._search_endpoints:
+            last_endpoint = url
+            t0 = time.time()
+            try:
+                self.api_calls += 1
+                resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            except Exception as e:
+                last_status = None
+                last_raw = f"request exception: {e}"
+                continue
+            elapsed_ms = int((time.time() - t0) * 1000)
+            last_status = resp.status_code
+
+            try:
+                raw = resp.json()
+            except Exception:
+                raw = {"_non_json_body": resp.text[:2000]}
+            last_raw = raw
+
+            if resp.status_code == 200:
+                items = (
+                    raw.get("Items") or raw.get("items") or
+                    (raw.get("searchResult") or {}).get("items") or []
+                )
+                norm = [self._normalize_item(i) for i in items]
+                result.update(
+                    ok=True,
+                    request={"url": url, "headers": safe_headers, "payload": payload},
+                    response={
+                        "status": 200,
+                        "endpoint": url,
+                        "raw": raw,
+                        "item_count": len(items),
+                        "elapsed_ms": elapsed_ms,
+                    },
+                    items=norm,
+                )
+                return result
+
+            # Non-200: keep trying the next endpoint but remember the error.
+
+        result.update(
+            ok=False,
+            request={"url": last_endpoint, "headers": safe_headers, "payload": payload},
+            response={
+                "status": last_status,
+                "endpoint": last_endpoint,
+                "raw": last_raw,
+                "item_count": 0,
+                "elapsed_ms": None,
+            },
+            error=f"No endpoint returned items (last status: {last_status})",
+        )
+        return result
 
     # =========================================================================
     # Multi-page search with deduplication

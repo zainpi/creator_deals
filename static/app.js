@@ -660,6 +660,222 @@ async function toggleScanner() {
     }
 }
 
+// ============= CATEGORY ID TEST (RAW JSON) =============
+
+let CATEGORY_TABLE = [];
+
+function _esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function _money(v) {
+    if (v == null || v === '') return 'N/A';
+    const n = parseFloat(v);
+    return isNaN(n) ? 'N/A' : n.toFixed(2);
+}
+
+function toggleCatPanel() {
+    const p = document.getElementById('cat-controls');
+    const i = document.getElementById('cat-toggle-indicator');
+    const hidden = p.style.display === 'none' || p.style.display === '';
+    p.style.display = hidden ? 'block' : 'none';
+    i.textContent = hidden ? '▴' : '▾';
+}
+
+function toggleBatchPanel() {
+    const p = document.getElementById('batch-controls');
+    const i = document.getElementById('batch-toggle-indicator');
+    const hidden = p.style.display === 'none' || p.style.display === '';
+    p.style.display = hidden ? 'block' : 'none';
+    i.textContent = hidden ? '▴' : '▾';
+}
+
+async function loadCategoryTable() {
+    try {
+        const res = await fetch('/api/categories');
+        CATEGORY_TABLE = (await res.json()) || [];
+        const sel = document.getElementById('cat_preset');
+        if (sel) {
+            CATEGORY_TABLE.forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.id;
+                o.textContent = `#${c.id} · ${c.searchIndex} · ${c.keywords} · node ${c.browseNodeId} (${c.priceNote || '—'})`;
+                sel.appendChild(o);
+            });
+        }
+    } catch (e) {
+        console.error('loadCategoryTable failed:', e);
+    }
+}
+
+function loadCatPreset() {
+    const id = parseInt(document.getElementById('cat_preset').value);
+    const c = CATEGORY_TABLE.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('cat_search_index').value = c.searchIndex || '';
+    document.getElementById('cat_keywords').value      = c.keywords || '';
+    document.getElementById('cat_browse_node').value   = c.browseNodeId || '';
+    document.getElementById('cat_min_saving').value    = c.minSavingPercent ?? 50;
+}
+
+async function runCatTest() {
+    const btn = event.target;
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = '⏳ Running…';
+    try {
+        const payload = {
+            marketplace:    document.getElementById('cat_marketplace').value,
+            search_index:   document.getElementById('cat_search_index').value,
+            keywords:       document.getElementById('cat_keywords').value,
+            browse_node_id: document.getElementById('cat_browse_node').value,
+            sort_by:        document.getElementById('cat_sort_by').value,
+            min_saving:     parseInt(document.getElementById('cat_min_saving').value || '0'),
+            min_price:      parseFloat(document.getElementById('cat_min_price').value || '0'),
+            max_price:      parseFloat(document.getElementById('cat_max_price').value || '450'),
+            item_page:      parseInt(document.getElementById('cat_item_page').value || '1'),
+            item_count:     parseInt(document.getElementById('cat_item_count').value || '10'),
+        };
+        const res = await fetch('/api/raw_search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        document.getElementById('cat-results').style.display = 'block';
+        const resp = data.response || {};
+        document.getElementById('cat-summary').innerHTML = `
+            <div class="test-stat"><label>OK</label><span>${data.ok ? '✅' : '❌'}</span></div>
+            <div class="test-stat"><label>HTTP Status</label><span>${resp.status ?? '—'}</span></div>
+            <div class="test-stat"><label>Items Found</label><span>${resp.item_count ?? (data.items || []).length}</span></div>
+            <div class="test-stat"><label>Latency</label><span>${resp.elapsed_ms != null ? resp.elapsed_ms + 'ms' : '—'}</span></div>
+        `;
+        document.getElementById('cat-request-json').textContent =
+            JSON.stringify(data.request || {}, null, 2);
+        document.getElementById('cat-response-json').textContent =
+            JSON.stringify(data.response || { error: data.error }, null, 2);
+
+        const items = data.items || [];
+        document.getElementById('cat-items').innerHTML = items.length === 0
+            ? '<p class="loading">No items returned.</p>'
+            : items.map(renderRawCard).join('');
+    } catch (e) {
+        console.error('runCatTest error:', e);
+        alert('Raw search error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+    }
+}
+
+function renderRawCard(it) {
+    const listing = ((it.OffersV2 || {}).Listings || [{}])[0] || {};
+    const price = (listing.Price || {}).Amount;
+    const sav   = listing.SavingBasis;
+    const img   = ((((it.Images || {}).Primary || {}).Medium || {}).URL) || '';
+    const title = ((it.ItemInfo || {}).Title || {}).DisplayValue || '';
+    return `
+        <div class="product-card">
+            ${img ? `<img src="${_esc(img)}" alt="" style="width:100%;height:120px;object-fit:contain;background:#fff;border-radius:6px;">` : ''}
+            <div class="product-info">
+                <div class="product-asin">${_esc(it.ASIN || '')}</div>
+                <div class="product-title">${_esc(title.slice(0, 90))}</div>
+                <div class="product-metrics">
+                    <span class="metric">💶 ${_money(price)}</span>
+                    <span class="metric">🏷️ ${sav != null ? sav + '%' : 'N/A'}</span>
+                    <span class="metric" title="Category">${_esc(it.Category || '—')}</span>
+                </div>
+            </div>
+        </div>`;
+}
+
+// ============= BATCH: ALL CATEGORIES =============
+
+async function runBatchTest() {
+    const btn = event.target;
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = '⏳ Running…';
+    const prog = document.getElementById('batch-progress');
+    prog.textContent = 'Contacting Amazon Creators API… (this can take a minute)';
+
+    try {
+        const subsetOnly = document.getElementById('batch_only_computers').checked;
+        const ids = subsetOnly
+            ? CATEGORY_TABLE.slice(0, 10).map(c => c.id)
+            : [];
+
+        const overrideRaw = document.getElementById('batch_min_saving').value;
+        const payload = {
+            marketplace: document.getElementById('batch_marketplace').value,
+            sort_by:     document.getElementById('batch_sort_by').value,
+            min_price:   parseFloat(document.getElementById('batch_min_price').value || '0'),
+            max_price:   parseFloat(document.getElementById('batch_max_price').value || '450'),
+            item_page:   parseInt(document.getElementById('batch_item_page').value || '1'),
+            item_count:  parseInt(document.getElementById('batch_item_count').value || '10'),
+            category_ids: ids,
+            use_category_saving: overrideRaw === '',
+        };
+        if (overrideRaw !== '') payload.min_saving = parseInt(overrideRaw);
+
+        const res = await fetch('/api/batch_test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        document.getElementById('batch-results').style.display = 'block';
+        document.getElementById('batch-summary').innerHTML = `
+            <div class="test-stat"><label>Categories</label><span>${data.count}</span></div>
+            <div class="test-stat"><label>Total Items</label><span>${data.total_found}</span></div>
+            <div class="test-stat"><label>API Calls</label><span>${data.api_calls}</span></div>
+            <div class="test-stat"><label>Time</label><span>${data.elapsed_s}s</span></div>
+        `;
+
+        const tbody = document.getElementById('batch-tbody');
+        tbody.innerHTML = (data.rows || []).map(r => {
+            const cls = r.error ? 'err-row' : (r.found > 0 ? 'ok-row' : 'zero-row');
+            const detailJson = JSON.stringify({
+                request_payload: r.request_payload,
+                items: r.items,
+                error: r.error,
+            }, null, 2);
+            return `
+                <tr class="${cls}">
+                    <td>${r.id}</td>
+                    <td>${_esc(r.searchIndex)}</td>
+                    <td>${_esc(r.keywords)}</td>
+                    <td>${_esc(r.browseNodeId)}</td>
+                    <td>${r.minSavingUsed}</td>
+                    <td>${r.found}</td>
+                    <td>${r.status ?? (r.error ? 'ERR' : '—')}</td>
+                    <td>${r.elapsed_ms ?? '—'}</td>
+                    <td><span class="row-json" onclick="toggleBatchJson(${r.id})">view</span></td>
+                </tr>
+                <tr class="batch-json-detail" id="batch-json-${r.id}" style="display:none;">
+                    <td colspan="9"><pre class="json-box">${_esc(detailJson)}</pre></td>
+                </tr>`;
+        }).join('');
+
+        prog.textContent = `Done — ${data.total_found} items across ${data.count} categories.`;
+    } catch (e) {
+        console.error('runBatchTest error:', e);
+        prog.textContent = '';
+        alert('Batch error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+    }
+}
+
+function toggleBatchJson(id) {
+    const row = document.getElementById('batch-json-' + id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
 // ============= INIT =============
 
 (async function initDashboard() {
@@ -670,6 +886,7 @@ async function toggleScanner() {
     }
     await refreshProducts();
     await refreshStats();
+    loadCategoryTable();   // populate the category-ID test presets
     // Live feed disabled
     // refreshFeed();
     // refreshScannerStatus();
@@ -692,3 +909,9 @@ window.toggleTestPanel = toggleTestPanel;
 window.switchTab       = switchTab;
 window.filterFeed      = filterFeed;
 window.toggleScanner   = toggleScanner;
+window.toggleCatPanel  = toggleCatPanel;
+window.toggleBatchPanel = toggleBatchPanel;
+window.loadCatPreset   = loadCatPreset;
+window.runCatTest      = runCatTest;
+window.runBatchTest    = runBatchTest;
+window.toggleBatchJson = toggleBatchJson;

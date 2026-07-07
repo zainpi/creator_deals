@@ -651,6 +651,59 @@ header p {
     padding: 40px;
 }
 
+/* ==================== Raw JSON + Batch panels ==================== */
+
+.json-box {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 420px;
+    overflow: auto;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.8em;
+    line-height: 1.45;
+    color: #c9d1d9;
+    white-space: pre;
+}
+
+.batch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+}
+
+.batch-table th,
+.batch-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a40;
+    white-space: nowrap;
+}
+
+.batch-table th {
+    color: #00d4ff;
+    text-transform: uppercase;
+    font-size: 0.8em;
+    letter-spacing: 0.03em;
+}
+
+.batch-table tr.ok-row td:nth-child(6) { color: #4ade80; font-weight: 700; }
+.batch-table tr.zero-row td:nth-child(6) { color: #fbbf24; }
+.batch-table tr.err-row { background: rgba(255, 107, 107, 0.08); }
+.batch-table tr.err-row td { color: #ff9b9b; }
+
+.batch-table .row-json {
+    cursor: pointer;
+    color: #667eea;
+    text-decoration: underline;
+}
+
+.batch-json-detail td {
+    background: #0d1117;
+    white-space: normal;
+}
+
 @media (max-width: 768px) {
     header h1 {
         font-size: 1.8em;

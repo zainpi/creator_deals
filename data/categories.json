@@ -1,0 +1,587 @@
+[
+  {
+    "id": 1,
+    "searchIndex": "Appliances",
+    "keywords": "Backöfen",
+    "browseNodeId": "13528203031",
+    "priceNote": "50€ - 50%",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 2,
+    "searchIndex": "Appliances",
+    "keywords": "Dunstabzugshauben",
+    "browseNodeId": "13528203031",
+    "priceNote": "50€ - 50%",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 3,
+    "searchIndex": "Appliances",
+    "keywords": "Herde",
+    "browseNodeId": "13528203031",
+    "priceNote": "€50 - 50%",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 4,
+    "searchIndex": "Appliances",
+    "keywords": "Herdsets",
+    "browseNodeId": "13528203031",
+    "priceNote": "€50 - 50%",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 5,
+    "searchIndex": "Appliances",
+    "keywords": "Kochfelder",
+    "browseNodeId": "13528203031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 6,
+    "searchIndex": "Appliances",
+    "keywords": "Wärmeschubladen",
+    "browseNodeId": "13528203031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 7,
+    "searchIndex": "Appliances",
+    "keywords": "Bierfasskühlanlagen",
+    "browseNodeId": "18066591031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 8,
+    "searchIndex": "Appliances",
+    "keywords": "Mini-Zapfanlagen",
+    "browseNodeId": "18066591031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 9,
+    "searchIndex": "Appliances",
+    "keywords": "Weinkühlschränke",
+    "browseNodeId": "18066591031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 10,
+    "searchIndex": "Appliances",
+    "keywords": "Geschirrspüler",
+    "browseNodeId": "16075771",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 11,
+    "searchIndex": "Appliances",
+    "keywords": "Geschirrtrockner",
+    "browseNodeId": "908823031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 12,
+    "searchIndex": "Appliances",
+    "keywords": "Elektro-Komposter",
+    "browseNodeId": "908823031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 13,
+    "searchIndex": "Appliances",
+    "keywords": "Gefriergeräte",
+    "browseNodeId": "13528201031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 14,
+    "searchIndex": "Appliances",
+    "keywords": "Kühlschränke",
+    "browseNodeId": "13528201031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 15,
+    "searchIndex": "Appliances",
+    "keywords": "Mini-Küchen",
+    "browseNodeId": "908823031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 16,
+    "searchIndex": "Appliances",
+    "keywords": "Müllpressen",
+    "browseNodeId": "908823031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 17,
+    "searchIndex": "Appliances",
+    "keywords": "Mobile Waschmaschinen",
+    "browseNodeId": "1399929031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 18,
+    "searchIndex": "Appliances",
+    "keywords": "Trockner",
+    "browseNodeId": "1399929031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 19,
+    "searchIndex": "Appliances",
+    "keywords": "Wasch- & Trockensäulen",
+    "browseNodeId": "908823031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 20,
+    "searchIndex": "Appliances",
+    "keywords": "Wäscheschleudern",
+    "browseNodeId": "1399929031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 21,
+    "searchIndex": "Appliances",
+    "keywords": "Waschmaschinen",
+    "browseNodeId": "1399929031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 22,
+    "searchIndex": "Appliances",
+    "keywords": "Waschtrockner",
+    "browseNodeId": "1399929031",
+    "priceNote": "€50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 23,
+    "searchIndex": "Appliances",
+    "keywords": "Inverter",
+    "browseNodeId": "32075753031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 24,
+    "searchIndex": "Appliances",
+    "keywords": "Wechselrichter & Akku-Sets",
+    "browseNodeId": "32075753031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 25,
+    "searchIndex": "Appliances",
+    "keywords": "Zubehör",
+    "browseNodeId": "265854011",
+    "priceNote": "70% above - 15 euros intervals",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 26,
+    "searchIndex": "Computers",
+    "keywords": "Barebones",
+    "browseNodeId": "340843031",
+    "priceNote": "50",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 27,
+    "searchIndex": "Computers",
+    "keywords": "Adapter",
+    "browseNodeId": "427958031",
+    "priceNote": "70% - 15 euro intervals",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 28,
+    "searchIndex": "Computers",
+    "keywords": "PC-Headsets",
+    "browseNodeId": "16106312031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 29,
+    "searchIndex": "Computers",
+    "keywords": "PC-Lautsprecher",
+    "browseNodeId": "16106312031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 30,
+    "searchIndex": "Computers",
+    "keywords": "PC-Mikrofone",
+    "browseNodeId": "16106312031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 31,
+    "searchIndex": "Computers",
+    "keywords": "Webcams, Headsets & Mikrofone",
+    "browseNodeId": "16106312031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 32,
+    "searchIndex": "Computers",
+    "keywords": "Computer- & Server-Racks",
+    "browseNodeId": "430050031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 33,
+    "searchIndex": "Computers",
+    "keywords": "Festplatten-Zubehör",
+    "browseNodeId": "5224515031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 34,
+    "searchIndex": "Computers",
+    "keywords": "Kabel",
+    "browseNodeId": "22209181031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 35,
+    "searchIndex": "Computers",
+    "keywords": "Bundles",
+    "browseNodeId": "430066031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 36,
+    "searchIndex": "Computers",
+    "keywords": "Kühlpads & externe Lüfter",
+    "browseNodeId": "430066031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 37,
+    "searchIndex": "Computers",
+    "keywords": "Ladegeräte & Dockingstationen",
+    "browseNodeId": "6411155031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 38,
+    "searchIndex": "Computers",
+    "keywords": "Notebooktaschen & -koffer",
+    "browseNodeId": "430119031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 39,
+    "searchIndex": "Computers",
+    "keywords": "Sicherheitsschlösser",
+    "browseNodeId": "430066031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 40,
+    "searchIndex": "Computers",
+    "keywords": "Monitorarm",
+    "browseNodeId": "430059031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 41,
+    "searchIndex": "Computers",
+    "keywords": "Monitorständer",
+    "browseNodeId": "430059031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 42,
+    "searchIndex": "Computers",
+    "keywords": "Tablet-Zubehör",
+    "browseNodeId": "815131031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 43,
+    "searchIndex": "Computers",
+    "keywords": "Ersatzbatterien",
+    "browseNodeId": "14330009031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 44,
+    "searchIndex": "Computers",
+    "keywords": "Unterbrechungsfreie Stromversorgung",
+    "browseNodeId": "14330009031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 45,
+    "searchIndex": "Computers",
+    "keywords": "USB-Gadgets",
+    "browseNodeId": "9638138031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 46,
+    "searchIndex": "Computers",
+    "keywords": "USB-Hubs",
+    "browseNodeId": "430064031",
+    "priceNote": "70% - 15 euros",
+    "minSavingPercent": 70,
+    "intervalEuro": 15
+  },
+  {
+    "id": 47,
+    "searchIndex": "Computers",
+    "keywords": "Externe Datenspeicher",
+    "browseNodeId": "17449504031",
+    "priceNote": "50% - 15 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 15
+  },
+  {
+    "id": 48,
+    "searchIndex": "Computers",
+    "keywords": "14076205031",
+    "browseNodeId": "17449504031",
+    "priceNote": "50% - 15 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 15
+  },
+  {
+    "id": 49,
+    "searchIndex": "Computers",
+    "keywords": "Krypto-Hardware-Wallets",
+    "browseNodeId": "17449504031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 50,
+    "searchIndex": "Computers",
+    "keywords": "NAS-Systeme",
+    "browseNodeId": "17449504031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 51,
+    "searchIndex": "Computers",
+    "keywords": "All-in-One PCs",
+    "browseNodeId": "427954031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 52,
+    "searchIndex": "Computers",
+    "keywords": "Mini-PCs",
+    "browseNodeId": "427954031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 53,
+    "searchIndex": "Computers",
+    "keywords": "Tower-PCs",
+    "browseNodeId": "427954031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 54,
+    "searchIndex": "Computers",
+    "keywords": "Drucker",
+    "browseNodeId": "17441410031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 55,
+    "searchIndex": "Computers",
+    "keywords": "Externe PC-Komponenten",
+    "browseNodeId": "427956031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 56,
+    "searchIndex": "Computers",
+    "keywords": "Arbeitsspeicher",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 57,
+    "searchIndex": "Computers",
+    "keywords": "Grafikkarten",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 58,
+    "searchIndex": "Computers",
+    "keywords": "Interne TV- & Videoschnittkarten",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 59,
+    "searchIndex": "Computers",
+    "keywords": "Mainboards",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 60,
+    "searchIndex": "Computers",
+    "keywords": "PC-Kühlung & Lüfter",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 61,
+    "searchIndex": "Computers",
+    "keywords": "PC-Netzteile",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 62,
+    "searchIndex": "Computers",
+    "keywords": "Prozessoren",
+    "browseNodeId": "17453196031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 63,
+    "searchIndex": "Computers",
+    "keywords": "2-in-1-Laptops",
+    "browseNodeId": "427957031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 64,
+    "searchIndex": "Computers",
+    "keywords": "Normale Laptops",
+    "browseNodeId": "427957031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 65,
+    "searchIndex": "Computers",
+    "keywords": "LCD-Schreibtafeln",
+    "browseNodeId": "15424891031",
+    "priceNote": "50% - 50 euro",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  }
+]

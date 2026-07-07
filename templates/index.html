@@ -205,6 +205,191 @@
         </div>
     </div>
 
+    <!-- ============ CATEGORY ID TEST (RAW JSON) ============ -->
+    <div class="test-section" id="cat-test-section">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleCatPanel()" title="Raw Creators API test by category ID — full JSON in/out, no Keepa/AI">
+            <span>🗂️ Category ID Test (Raw JSON)</span>
+            <span id="cat-toggle-indicator" style="font-size:0.8em;">▾</span>
+        </h2>
+        <div id="cat-controls" class="test-controls" style="display:none;">
+            <div class="test-controls-header">
+                <h3>Single category — flexible inputs, raw API response</h3>
+                <p style="margin:4px 0 0;color:#9aa;font-size:0.85em;">Every field is optional and editable. Nothing is hard-coded. Leave keywords empty to search by browse node only.</p>
+            </div>
+
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Marketplace</label>
+                    <select id="cat_marketplace">
+                        <option value="DE">🇩🇪 Germany</option>
+                        <option value="GB">🇬🇧 UK</option>
+                        <option value="FR">🇫🇷 France</option>
+                        <option value="ES">🇪🇸 Spain</option>
+                        <option value="IT">🇮🇹 Italy</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Search Index</label>
+                    <input id="cat_search_index" type="text" value="Appliances" placeholder="e.g. Appliances, Computers, All">
+                </div>
+                <div class="filter-group">
+                    <label>Keywords (optional)</label>
+                    <input id="cat_keywords" type="text" placeholder="e.g. Backöfen">
+                </div>
+                <div class="filter-group">
+                    <label>Browse Node ID</label>
+                    <input id="cat_browse_node" type="text" placeholder="e.g. 13528203031">
+                </div>
+            </div>
+
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label title="All 6 Creators API sort options">Sort By</label>
+                    <select id="cat_sort_by">
+                        <option value="Featured">Featured</option>
+                        <option value="Price:LowToHigh">Price: Low → High</option>
+                        <option value="Price:HighToLow">Price: High → Low</option>
+                        <option value="AvgCustomerReviews">Avg. Customer Reviews</option>
+                        <option value="NewestArrivals">Newest Arrivals</option>
+                        <option value="Relevance">Relevance</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Min Saving %</label>
+                    <input id="cat_min_saving" type="number" value="50" min="0" max="100">
+                </div>
+                <div class="filter-group">
+                    <label>Min Price (€/£)</label>
+                    <input id="cat_min_price" type="number" value="0" min="0">
+                </div>
+                <div class="filter-group">
+                    <label>Max Price (€/£)</label>
+                    <input id="cat_max_price" type="number" value="450" min="0">
+                </div>
+            </div>
+
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Item Page (1–10)</label>
+                    <input id="cat_item_page" type="number" value="1" min="1" max="10">
+                </div>
+                <div class="filter-group">
+                    <label>Item Count (≤10)</label>
+                    <input id="cat_item_count" type="number" value="10" min="1" max="10">
+                </div>
+                <div class="filter-group" style="align-self:flex-end;">
+                    <button class="btn btn-test" onclick="runCatTest()">🔍 Run Raw Search</button>
+                </div>
+            </div>
+
+            <!-- Preset loader from the category table -->
+            <div class="test-filter-row" style="align-items:flex-end;">
+                <div class="filter-group" style="flex:1;">
+                    <label>Load preset from category table</label>
+                    <select id="cat_preset" onchange="loadCatPreset()">
+                        <option value="">— pick a category to autofill —</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="cat-results" style="display:none;margin-top:16px;">
+                <div class="test-stats" id="cat-summary"></div>
+                <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;">
+                    <div style="flex:1;min-width:320px;">
+                        <h4 style="margin:0 0 6px;">📤 Request JSON</h4>
+                        <pre class="json-box" id="cat-request-json"></pre>
+                    </div>
+                    <div style="flex:1;min-width:320px;">
+                        <h4 style="margin:0 0 6px;">📥 Response JSON</h4>
+                        <pre class="json-box" id="cat-response-json"></pre>
+                    </div>
+                </div>
+                <div id="cat-items" class="products-grid" style="margin-top:12px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ BATCH: ALL CATEGORIES ============ -->
+    <div class="test-section" id="batch-test-section">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleBatchPanel()" title="Run every category from the table with one min/max/sort and compare results">
+            <span>🧮 Batch: All Categories</span>
+            <span id="batch-toggle-indicator" style="font-size:0.8em;">▾</span>
+        </h2>
+        <div id="batch-controls" class="test-controls" style="display:none;">
+            <div class="test-controls-header">
+                <h3>Run the whole category table with one price band &amp; sort</h3>
+                <p style="margin:4px 0 0;color:#9aa;font-size:0.85em;">Each row keeps its own Min Saving % from the table unless you override it below. One API call per selected category.</p>
+            </div>
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Marketplace</label>
+                    <select id="batch_marketplace">
+                        <option value="DE">🇩🇪 Germany</option>
+                        <option value="GB">🇬🇧 UK</option>
+                        <option value="FR">🇫🇷 France</option>
+                        <option value="ES">🇪🇸 Spain</option>
+                        <option value="IT">🇮🇹 Italy</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Sort By</label>
+                    <select id="batch_sort_by">
+                        <option value="Featured">Featured</option>
+                        <option value="Price:LowToHigh">Price: Low → High</option>
+                        <option value="Price:HighToLow">Price: High → Low</option>
+                        <option value="AvgCustomerReviews">Avg. Customer Reviews</option>
+                        <option value="NewestArrivals">Newest Arrivals</option>
+                        <option value="Relevance">Relevance</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Min Price (€/£)</label>
+                    <input id="batch_min_price" type="number" value="0" min="0">
+                </div>
+                <div class="filter-group">
+                    <label>Max Price (€/£)</label>
+                    <input id="batch_max_price" type="number" value="450" min="0">
+                </div>
+            </div>
+            <div class="test-filter-row">
+                <div class="filter-group">
+                    <label>Item Page</label>
+                    <input id="batch_item_page" type="number" value="1" min="1" max="10">
+                </div>
+                <div class="filter-group">
+                    <label>Item Count</label>
+                    <input id="batch_item_count" type="number" value="10" min="1" max="10">
+                </div>
+                <div class="filter-group">
+                    <label title="Leave blank to use each category's own Min Saving % from the table">Override Min Saving % (optional)</label>
+                    <input id="batch_min_saving" type="number" placeholder="table default" min="0" max="100">
+                </div>
+                <div class="filter-group checkbox">
+                    <input id="batch_only_computers" type="checkbox">
+                    <label for="batch_only_computers">Only run a subset (first 10)</label>
+                </div>
+            </div>
+            <div class="test-filter-row" style="align-items:flex-end;">
+                <button class="btn btn-test" onclick="runBatchTest()">▶ Run Batch</button>
+                <span id="batch-progress" style="margin-left:12px;color:#9aa;"></span>
+            </div>
+            <div id="batch-results" style="display:none;margin-top:16px;">
+                <div class="test-stats" id="batch-summary"></div>
+                <div style="overflow-x:auto;margin-top:12px;">
+                    <table class="batch-table" id="batch-table">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Index</th><th>Keywords</th><th>Browse Node</th>
+                                <th>Min%</th><th>Found</th><th>Status</th><th>ms</th><th>JSON</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batch-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Results -->
     <div class="products-section">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
@@ -261,7 +446,7 @@
 
 </div>
 
-<script src="/static/app.js?v=18"></script>
+<script src="/static/app.js?v=19"></script>
 
 </body>
 </html>

@@ -345,6 +345,177 @@ def api_test():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ==================== Category-ID raw diagnostic search ====================
+#
+# These endpoints power the "Category ID Test (Raw JSON)" panel. They hit the
+# Amazon Creators API directly and return the EXACT request payload + raw
+# response, with NO Keepa / AI enrichment — so you can verify the API is
+# working and see precisely what each input produces.
+
+import json as _json
+import time as _time
+
+_CATEGORIES_PATH = os.path.join(os.path.dirname(__file__), "data", "categories.json")
+
+
+def _load_categories():
+    try:
+        with open(_CATEGORIES_PATH, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except Exception as e:
+        logger.error(f"[APP] Could not load categories.json: {e}")
+        return []
+
+
+def _creators_for_marketplace(marketplace):
+    """Build a CreatorsSearch bound to the requested marketplace."""
+    from creators_search import CreatorsSearch
+    diag_config = dict(config)
+    diag_config["amazon"] = dict(config.get("amazon", {}))
+    diag_config["amazon"]["marketplace"] = str(marketplace or "DE").upper()
+    return CreatorsSearch(diag_config)
+
+
+# Creators API SortBy — all 6 documented options
+VALID_SORT_RAW = {
+    "Featured", "Price:LowToHigh", "Price:HighToLow",
+    "AvgCustomerReviews", "NewestArrivals", "Relevance",
+}
+
+
+def _run_diagnostic(cs, params):
+    """Call diagnostic_search with sanitised params. Returns the result dict."""
+    sort_by = str(params.get("sort_by") or "Featured").strip()
+    if sort_by not in VALID_SORT_RAW:
+        sort_by = "Featured"
+    return cs.diagnostic_search(
+        search_index=str(params.get("search_index") or "All").strip(),
+        keywords=str(params.get("keywords") or "").strip(),
+        browse_node_id=(str(params.get("browse_node_id")).strip() or None)
+                        if params.get("browse_node_id") else None,
+        sort_by=sort_by,
+        min_saving_percent=int(params.get("min_saving") or 0),
+        min_price=float(params.get("min_price") or 0),
+        max_price=float(params.get("max_price") or 450),
+        item_page=int(params.get("item_page") or 1),
+        item_count=(int(params["item_count"]) if params.get("item_count") else None),
+    )
+
+
+@app.route("/api/categories", methods=["GET"])
+def api_categories():
+    """Serve the category test table (searchIndex, keywords, browseNodeId, ...)."""
+    return jsonify(_load_categories())
+
+
+@app.route("/api/raw_search", methods=["POST"])
+def api_raw_search():
+    """
+    Single category-ID diagnostic search. Returns the exact request payload the
+    Creators API received plus the raw response and normalized items. No Keepa/AI.
+    """
+    params = request.json or {}
+    try:
+        cs = _creators_for_marketplace(params.get("marketplace", "DE"))
+        result = _run_diagnostic(cs, params)
+        result["api_calls"] = cs.api_calls
+        return jsonify(result)
+    except Exception as e:
+        logger.exception(f"[APP] raw_search error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/batch_test", methods=["POST"])
+def api_batch_test():
+    """
+    Run the raw diagnostic across many categories from the table.
+
+    Body:
+      marketplace, sort_by, min_price, max_price, item_page, item_count
+      min_saving        — optional global override; if omitted each category's
+                          own minSavingPercent from the table is used
+      category_ids      — optional list of category ids to run; omit/empty = all
+      use_category_saving — bool (default True): use each row's minSavingPercent
+    Returns a per-category summary + the full diagnostic for each row.
+    """
+    params = request.json or {}
+    cats = _load_categories()
+
+    wanted = params.get("category_ids") or []
+    if wanted:
+        wanted_set = {int(x) for x in wanted}
+        cats = [c for c in cats if c.get("id") in wanted_set]
+
+    use_cat_saving = bool(params.get("use_category_saving", True))
+    override_saving = params.get("min_saving")
+
+    marketplace = params.get("marketplace", "DE")
+    cs = _creators_for_marketplace(marketplace)
+
+    rows = []
+    started = _time.time()
+    for c in cats:
+        min_saving = (c.get("minSavingPercent", 50)
+                      if use_cat_saving and override_saving in (None, "")
+                      else int(override_saving or 0))
+        p = {
+            "search_index": c.get("searchIndex", "All"),
+            "keywords": c.get("keywords", ""),
+            "browse_node_id": c.get("browseNodeId", ""),
+            "sort_by": params.get("sort_by", "Featured"),
+            "min_saving": min_saving,
+            "min_price": params.get("min_price", 0),
+            "max_price": params.get("max_price", 450),
+            "item_page": params.get("item_page", 1),
+            "item_count": params.get("item_count"),
+        }
+        try:
+            res = _run_diagnostic(cs, p)
+        except Exception as e:
+            res = {"ok": False, "error": str(e), "items": [], "response": None,
+                   "request": {"payload": p}}
+
+        resp = res.get("response") or {}
+        # Compact per-item view for the table
+        items_view = []
+        for it in (res.get("items") or []):
+            listing = ((it.get("OffersV2") or {}).get("Listings") or [{}])[0]
+            price = (listing.get("Price") or {}).get("Amount")
+            items_view.append({
+                "asin": it.get("ASIN"),
+                "title": (it.get("ItemInfo", {}).get("Title", {}).get("DisplayValue") or "")[:90],
+                "price": price,
+                "saving_pct": listing.get("SavingBasis"),
+                "category": it.get("Category"),
+            })
+
+        rows.append({
+            "id": c.get("id"),
+            "searchIndex": c.get("searchIndex"),
+            "keywords": c.get("keywords"),
+            "browseNodeId": c.get("browseNodeId"),
+            "priceNote": c.get("priceNote"),
+            "minSavingUsed": min_saving,
+            "ok": res.get("ok", False),
+            "status": resp.get("status"),
+            "found": resp.get("item_count", len(res.get("items") or [])),
+            "elapsed_ms": resp.get("elapsed_ms"),
+            "error": res.get("error"),
+            "request_payload": (res.get("request") or {}).get("payload"),
+            "items": items_view,
+        })
+
+    return jsonify({
+        "ok": True,
+        "marketplace": str(marketplace).upper(),
+        "count": len(rows),
+        "total_found": sum(r["found"] for r in rows),
+        "elapsed_s": round(_time.time() - started, 1),
+        "api_calls": cs.api_calls,
+        "rows": rows,
+    })
+
+
 # ==================== Admin endpoints ====================
 
 @app.route("/api/config", methods=["GET"])
