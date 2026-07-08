@@ -819,46 +819,20 @@ async function runBatchTest() {
         };
         if (overrideRaw !== '') payload.min_saving = parseInt(overrideRaw);
 
+        // Kick off the batch as a background job — it returns immediately.
         const res = await fetch('/api/batch_test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        const start = await res.json();
+        if (start.started === false) {
+            prog.textContent = start.message || 'A batch is already running — waiting for it…';
+        }
 
-        document.getElementById('batch-results').style.display = 'block';
-        document.getElementById('batch-summary').innerHTML = `
-            <div class="test-stat"><label>Categories</label><span>${data.count}</span></div>
-            <div class="test-stat"><label>Total Items</label><span>${data.total_found}</span></div>
-            <div class="test-stat"><label>API Calls</label><span>${data.api_calls}</span></div>
-            <div class="test-stat"><label>Time</label><span>${data.elapsed_s}s</span></div>
-        `;
-
-        const tbody = document.getElementById('batch-tbody');
-        tbody.innerHTML = (data.rows || []).map(r => {
-            const cls = r.error ? 'err-row' : (r.found > 0 ? 'ok-row' : 'zero-row');
-            const detailJson = JSON.stringify({
-                request_payload: r.request_payload,
-                items: r.items,
-                error: r.error,
-            }, null, 2);
-            return `
-                <tr class="${cls}">
-                    <td>${r.id}</td>
-                    <td>${_esc(r.searchIndex)}</td>
-                    <td>${_esc(r.keywords)}</td>
-                    <td>${_esc(r.browseNodeId)}</td>
-                    <td>${r.minSavingUsed}</td>
-                    <td>${r.found}</td>
-                    <td>${r.status ?? (r.error ? 'ERR' : '—')}</td>
-                    <td>${r.elapsed_ms ?? '—'}</td>
-                    <td><span class="row-json" onclick="toggleBatchJson(${r.id})">view</span></td>
-                </tr>
-                <tr class="batch-json-detail" id="batch-json-${r.id}" style="display:none;">
-                    <td colspan="9"><pre class="json-box">${_esc(detailJson)}</pre></td>
-                </tr>`;
-        }).join('');
-
+        // Poll for progress + final result.
+        const data = await pollBatchStatus(prog);
+        renderBatchResults(data);
         prog.textContent = `Done — ${data.total_found} items across ${data.count} categories.`;
     } catch (e) {
         console.error('runBatchTest error:', e);
@@ -868,6 +842,71 @@ async function runBatchTest() {
         btn.disabled = false;
         btn.textContent = label;
     }
+}
+
+// Poll /api/batch_status until the job finishes; resolves with the result payload.
+function pollBatchStatus(prog) {
+    return new Promise((resolve, reject) => {
+        const tick = async () => {
+            try {
+                const res = await fetch('/api/batch_status');
+                const job = await res.json();
+                if (job.status === 'running') {
+                    const total = job.total || 0;
+                    const done = job.completed || 0;
+                    prog.textContent = total
+                        ? `Scanning categories… ${done}/${total}`
+                        : 'Contacting Amazon Creators API…';
+                    setTimeout(tick, 1500);
+                } else if (job.status === 'done' && job.result) {
+                    resolve(job.result);
+                } else if (job.status === 'error') {
+                    reject(new Error(job.error || 'batch failed'));
+                } else {
+                    // No job yet / unexpected state — keep waiting briefly.
+                    setTimeout(tick, 1500);
+                }
+            } catch (e) {
+                reject(e);
+            }
+        };
+        tick();
+    });
+}
+
+function renderBatchResults(data) {
+    document.getElementById('batch-results').style.display = 'block';
+    document.getElementById('batch-summary').innerHTML = `
+        <div class="test-stat"><label>Categories</label><span>${data.count}</span></div>
+        <div class="test-stat"><label>Total Items</label><span>${data.total_found}</span></div>
+        <div class="test-stat"><label>API Calls</label><span>${data.api_calls}</span></div>
+        <div class="test-stat"><label>Time</label><span>${data.elapsed_s}s</span></div>
+    `;
+
+    const tbody = document.getElementById('batch-tbody');
+    tbody.innerHTML = (data.rows || []).map(r => {
+        const cls = r.error ? 'err-row' : (r.found > 0 ? 'ok-row' : 'zero-row');
+        const detailJson = JSON.stringify({
+            request_payload: r.request_payload,
+            items: r.items,
+            error: r.error,
+        }, null, 2);
+        return `
+            <tr class="${cls}">
+                <td>${r.id}</td>
+                <td>${_esc(r.searchIndex)}</td>
+                <td>${_esc(r.keywords)}</td>
+                <td>${_esc(r.browseNodeId)}</td>
+                <td>${r.minSavingUsed}</td>
+                <td>${r.found}</td>
+                <td>${r.status ?? (r.error ? 'ERR' : '—')}</td>
+                <td>${r.elapsed_ms ?? '—'}</td>
+                <td><span class="row-json" onclick="toggleBatchJson(${r.id})">view</span></td>
+            </tr>
+            <tr class="batch-json-detail" id="batch-json-${r.id}" style="display:none;">
+                <td colspan="9"><pre class="json-box">${_esc(detailJson)}</pre></td>
+            </tr>`;
+    }).join('');
 }
 
 function toggleBatchJson(id) {

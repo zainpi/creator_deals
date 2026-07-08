@@ -13,6 +13,7 @@ from database import (
     get_products_for_user, get_stats_for_user, clear_products_for_user,
     get_user_preferences, save_user_preferences,
     set_search_job, get_search_job,
+    set_batch_job, get_batch_job,
     get_scanner_state, update_scanner_state,
 )
 
@@ -428,7 +429,13 @@ def api_raw_search():
 @app.route("/api/batch_test", methods=["POST"])
 def api_batch_test():
     """
-    Run the raw diagnostic across many categories from the table.
+    Kick off the raw diagnostic across many categories as a background job.
+
+    The batch loops through up to ~65 categories, each hitting the Amazon
+    Creators API — far too long for one request/response cycle under the host
+    router's 30s hard timeout. So we start it in a daemon thread (mirroring the
+    /api/search job pattern), record progress in the DB, and let the client poll
+    /api/batch_status. This endpoint returns immediately.
 
     Body:
       marketplace, sort_by, min_price, max_price, item_page, item_count
@@ -436,84 +443,129 @@ def api_batch_test():
                           own minSavingPercent from the table is used
       category_ids      — optional list of category ids to run; omit/empty = all
       use_category_saving — bool (default True): use each row's minSavingPercent
-    Returns a per-category summary + the full diagnostic for each row.
     """
     params = request.json or {}
-    cats = _load_categories()
 
-    wanted = params.get("category_ids") or []
-    if wanted:
-        wanted_set = {int(x) for x in wanted}
-        cats = [c for c in cats if c.get("id") in wanted_set]
+    # Don't start a second batch while one is already running.
+    existing = get_batch_job()
+    if existing.get("status") == "running":
+        return jsonify({"success": True, "started": False,
+                        "message": "A batch is already running"}), 202
 
-    use_cat_saving = bool(params.get("use_category_saving", True))
-    override_saving = params.get("min_saving")
+    set_batch_job(status="running", total=0, completed=0, error=None,
+                  result=None, started_at=datetime.utcnow().isoformat(),
+                  finished_at=None)
+    threading.Thread(target=_run_batch_job, args=(params,), daemon=True).start()
+    return jsonify({"success": True, "started": True})
 
-    marketplace = params.get("marketplace", "DE")
-    cs = _creators_for_marketplace(marketplace)
 
-    rows = []
-    started = _time.time()
-    for c in cats:
-        min_saving = (c.get("minSavingPercent", 50)
-                      if use_cat_saving and override_saving in (None, "")
-                      else int(override_saving or 0))
-        p = {
-            "search_index": c.get("searchIndex", "All"),
-            "keywords": c.get("keywords", ""),
-            "browse_node_id": c.get("browseNodeId", ""),
-            "sort_by": params.get("sort_by", "Featured"),
-            "min_saving": min_saving,
-            "min_price": params.get("min_price", 0),
-            "max_price": params.get("max_price", 450),
-            "item_page": params.get("item_page", 1),
-            "item_count": params.get("item_count"),
-        }
-        try:
-            res = _run_diagnostic(cs, p)
-        except Exception as e:
-            res = {"ok": False, "error": str(e), "items": [], "response": None,
-                   "request": {"payload": p}}
+def _run_batch_job(params):
+    """Background worker: run the category batch and store the result JSON.
 
-        resp = res.get("response") or {}
-        # Compact per-item view for the table
-        items_view = []
-        for it in (res.get("items") or []):
-            listing = ((it.get("OffersV2") or {}).get("Listings") or [{}])[0]
-            price = (listing.get("Price") or {}).get("Amount")
-            items_view.append({
-                "asin": it.get("ASIN"),
-                "title": (it.get("ItemInfo", {}).get("Title", {}).get("DisplayValue") or "")[:90],
-                "price": price,
-                "saving_pct": listing.get("SavingBasis"),
-                "category": it.get("Category"),
+    Everything is wrapped so any failure is recorded as job status='error' with
+    a message — the client always polls JSON, never an HTML 500 page.
+    """
+    try:
+        cats = _load_categories()
+
+        wanted = params.get("category_ids") or []
+        if wanted:
+            wanted_set = {int(x) for x in wanted}
+            cats = [c for c in cats if c.get("id") in wanted_set]
+
+        use_cat_saving = bool(params.get("use_category_saving", True))
+        override_saving = params.get("min_saving")
+
+        marketplace = params.get("marketplace", "DE")
+        cs = _creators_for_marketplace(marketplace)
+
+        set_batch_job(total=len(cats), completed=0)
+
+        rows = []
+        started = _time.time()
+        for c in cats:
+            min_saving = (c.get("minSavingPercent", 50)
+                          if use_cat_saving and override_saving in (None, "")
+                          else int(override_saving or 0))
+            p = {
+                "search_index": c.get("searchIndex", "All"),
+                "keywords": c.get("keywords", ""),
+                "browse_node_id": c.get("browseNodeId", ""),
+                "sort_by": params.get("sort_by", "Featured"),
+                "min_saving": min_saving,
+                "min_price": params.get("min_price", 0),
+                "max_price": params.get("max_price", 450),
+                "item_page": params.get("item_page", 1),
+                "item_count": params.get("item_count"),
+            }
+            try:
+                res = _run_diagnostic(cs, p)
+            except Exception as e:
+                res = {"ok": False, "error": str(e), "items": [], "response": None,
+                       "request": {"payload": p}}
+
+            resp = res.get("response") or {}
+            # Compact per-item view for the table
+            items_view = []
+            for it in (res.get("items") or []):
+                listing = ((it.get("OffersV2") or {}).get("Listings") or [{}])[0]
+                price = (listing.get("Price") or {}).get("Amount")
+                items_view.append({
+                    "asin": it.get("ASIN"),
+                    "title": (it.get("ItemInfo", {}).get("Title", {}).get("DisplayValue") or "")[:90],
+                    "price": price,
+                    "saving_pct": listing.get("SavingBasis"),
+                    "category": it.get("Category"),
+                })
+
+            rows.append({
+                "id": c.get("id"),
+                "searchIndex": c.get("searchIndex"),
+                "keywords": c.get("keywords"),
+                "browseNodeId": c.get("browseNodeId"),
+                "priceNote": c.get("priceNote"),
+                "minSavingUsed": min_saving,
+                "ok": res.get("ok", False),
+                "status": resp.get("status"),
+                "found": resp.get("item_count", len(res.get("items") or [])),
+                "elapsed_ms": resp.get("elapsed_ms"),
+                "error": res.get("error"),
+                "request_payload": (res.get("request") or {}).get("payload"),
+                "items": items_view,
             })
+            set_batch_job(completed=len(rows))
 
-        rows.append({
-            "id": c.get("id"),
-            "searchIndex": c.get("searchIndex"),
-            "keywords": c.get("keywords"),
-            "browseNodeId": c.get("browseNodeId"),
-            "priceNote": c.get("priceNote"),
-            "minSavingUsed": min_saving,
-            "ok": res.get("ok", False),
-            "status": resp.get("status"),
-            "found": resp.get("item_count", len(res.get("items") or [])),
-            "elapsed_ms": resp.get("elapsed_ms"),
-            "error": res.get("error"),
-            "request_payload": (res.get("request") or {}).get("payload"),
-            "items": items_view,
-        })
+        result = {
+            "ok": True,
+            "marketplace": str(marketplace).upper(),
+            "count": len(rows),
+            "total_found": sum(r["found"] for r in rows),
+            "elapsed_s": round(_time.time() - started, 1),
+            "api_calls": cs.api_calls,
+            "rows": rows,
+        }
+        set_batch_job(status="done", result=_json.dumps(result),
+                      finished_at=datetime.utcnow().isoformat())
+    except Exception as e:
+        logger.exception(f"[APP] Batch job error: {e}")
+        set_batch_job(status="error", error=str(e),
+                      finished_at=datetime.utcnow().isoformat())
 
-    return jsonify({
-        "ok": True,
-        "marketplace": str(marketplace).upper(),
-        "count": len(rows),
-        "total_found": sum(r["found"] for r in rows),
-        "elapsed_s": round(_time.time() - started, 1),
-        "api_calls": cs.api_calls,
-        "rows": rows,
-    })
+
+@app.route("/api/batch_status")
+def api_batch_status():
+    """Poll target for the background batch job. Always returns JSON.
+
+    Shape: {status, total, completed, error, started_at, finished_at, result}
+    where `result` is the parsed batch payload once status='done' (else null).
+    """
+    job = get_batch_job()
+    raw = job.pop("result", None)
+    try:
+        job["result"] = _json.loads(raw) if raw else None
+    except Exception:
+        job["result"] = None
+    return jsonify(job)
 
 
 # ==================== Admin endpoints ====================

@@ -150,6 +150,22 @@ def init_db():
         )
     ''')
 
+    # Background batch-diagnostic job (single row, id=1; shared across workers).
+    # `result` holds the full JSON payload the frontend renders once status='done'.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS batch_jobs (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            status TEXT,
+            total INTEGER DEFAULT 0,
+            completed INTEGER DEFAULT 0,
+            error TEXT,
+            result TEXT,
+            started_at TEXT,
+            finished_at TEXT
+        )
+    ''')
+    c.execute("INSERT INTO batch_jobs (id) VALUES (1) ON CONFLICT DO NOTHING")
+
     # Continuous scanner state (single row, id=1). The web process reads this;
     # the worker process writes it.
     c.execute('''
@@ -382,6 +398,40 @@ def get_search_job(user_id):
     return dict(zip(columns, row))
 
 
+# ==================== Background batch-diagnostic job ====================
+
+def set_batch_job(**fields):
+    """Update the single batch-job row (id=1). Only updates given fields.
+
+    Field names are caller-controlled (status, total, completed, error, result,
+    started_at, finished_at) — not user input — so interpolation is safe here.
+    """
+    if not fields:
+        return
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO batch_jobs (id) VALUES (1) ON CONFLICT DO NOTHING")
+        assignments = ", ".join(f"{k}=?" for k in fields)
+        c.execute(_q(f"UPDATE batch_jobs SET {assignments} WHERE id=1"),
+                  tuple(fields.values()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_batch_job():
+    conn = _connect()
+    c = conn.cursor()
+    c.execute("SELECT * FROM batch_jobs WHERE id=1")
+    row = c.fetchone()
+    columns = [d[0] for d in c.description]
+    conn.close()
+    if not row:
+        return {}
+    return dict(zip(columns, row))
+
+
 # ==================== Continuous scanner state ====================
 
 def get_scanner_state():
@@ -491,6 +541,7 @@ def reset_db():
         c.execute("DROP TABLE IF EXISTS discovered_products")
         c.execute("DROP TABLE IF EXISTS user_preferences")
         c.execute("DROP TABLE IF EXISTS search_jobs")
+        c.execute("DROP TABLE IF EXISTS batch_jobs")
         c.execute("DROP TABLE IF EXISTS scanner_state")
         c.execute("DROP TABLE IF EXISTS category_baselines")
         c.execute("DROP TABLE IF EXISTS scan_seen")
