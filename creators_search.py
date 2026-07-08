@@ -765,57 +765,48 @@ class CreatorsSearch:
         availability: str = "Available",
         item_page: int = 1,
         item_count: int | None = None,
+        max_pages: int = 10,
     ) -> dict:
         """
-        Fire a single SearchItems call and return EVERYTHING — the exact request
-        payload sent, the raw JSON the API returned, and the normalized items.
+        Run SearchItems across ALL pages (1..max_pages, default 10 — the API cap)
+        and return EVERYTHING: the request payload, a per-page breakdown, the raw
+        JSON of the first page (for structure verification), and the combined,
+        ASIN-deduplicated normalized items.
 
-        Unlike search_items(), this method does NOT apply config overrides or
-        force a rotated deal keyword: it sends exactly what the caller passes so
-        the JSON output faithfully reflects the inputs. No Keepa / AI enrichment.
+        Unlike search_items(), this does NOT apply config overrides or force a
+        rotated deal keyword — it sends exactly what the caller passes. Pagination
+        stops early as soon as a page returns zero items. No Keepa / AI enrichment.
 
-        Returns a dict shaped for a JSON UI:
+        Returns:
         {
           "ok": bool,
-          "request":  {"url": ..., "headers": {...}, "payload": {...}},
-          "response": {"status": int, "endpoint": str, "raw": {...}|str,
-                       "item_count": int, "elapsed_ms": int},
-          "items": [ normalized items ],
+          "request":  {"url", "headers", "payload"},   # payload.itemPage = "1..N"
+          "response": {"status", "endpoint", "raw" (first page), "pages": [...],
+                       "item_count" (combined), "pages_scanned", "elapsed_ms" (total)},
+          "items": [ combined normalized items ],
           "error": str | None,
         }
         """
-        result: dict = {
-            "ok": False,
-            "request": None,
-            "response": None,
-            "items": [],
-            "error": None,
-        }
+        result: dict = {"ok": False, "request": None, "response": None,
+                        "items": [], "error": None}
 
+        max_pages = max(1, min(int(max_pages or 10), 10))
         partner_tag = self._resolve_partner_tag()
-        payload = self._build_payload(
-            page=int(item_page),
-            search_index=search_index or "All",
-            sort_by=sort_by or "Featured",
-            condition=condition or "New",
-            availability=availability or "Available",
-            min_saving_percent=int(min_saving_percent or 0),
-            max_price=float(max_price or 0),
-            partner_tag=partner_tag,
-            keywords=keywords or "",
-            browse_node_id=browse_node_id,
-            min_price=float(min_price or 0),
-            item_count=item_count,
-        )
 
-        # Rate-limit like a normal call so batch runs stay polite.
-        self._rate_limit_wait()
-
+        # Auth once for the whole page loop.
         try:
             token, cred_version = self._get_access_token()
         except Exception as e:
+            base_payload = self._build_payload(
+                page=1, search_index=search_index or "All", sort_by=sort_by or "Featured",
+                condition=condition or "New", availability=availability or "Available",
+                min_saving_percent=int(min_saving_percent or 0), max_price=float(max_price or 0),
+                partner_tag=partner_tag, keywords=keywords or "",
+                browse_node_id=browse_node_id, min_price=float(min_price or 0),
+                item_count=item_count,
+            )
             result["error"] = f"Auth error: {e}"
-            result["request"] = {"url": None, "payload": payload}
+            result["request"] = {"url": None, "payload": base_payload}
             return result
 
         headers: dict = {
@@ -827,66 +818,109 @@ class CreatorsSearch:
         }
         if cred_version == "v2":
             headers["X-Amz-Auth-Version"] = "2.1"
-
-        # Headers minus the bearer token (never expose the secret token to the UI)
         safe_headers = {k: ("Bearer ***" if k == "Authorization" else v)
                         for k, v in headers.items()}
 
-        last_status = None
-        last_endpoint = None
-        last_raw: object = None
-        for url in self._search_endpoints:
-            last_endpoint = url
-            t0 = time.time()
-            try:
-                self.api_calls += 1
-                resp = requests.post(url, json=payload, headers=headers, timeout=30)
-            except Exception as e:
-                last_status = None
-                last_raw = f"request exception: {e}"
-                continue
-            elapsed_ms = int((time.time() - t0) * 1000)
-            last_status = resp.status_code
+        def _fetch_page(page_num: int) -> dict:
+            """One page across the endpoint fallbacks. Returns status/raw/items."""
+            self._rate_limit_wait()
+            payload = self._build_payload(
+                page=page_num, search_index=search_index or "All",
+                sort_by=sort_by or "Featured", condition=condition or "New",
+                availability=availability or "Available",
+                min_saving_percent=int(min_saving_percent or 0),
+                max_price=float(max_price or 0), partner_tag=partner_tag,
+                keywords=keywords or "", browse_node_id=browse_node_id,
+                min_price=float(min_price or 0), item_count=item_count,
+            )
+            last = {"status": None, "endpoint": None, "raw": None,
+                    "items": [], "item_count": 0, "elapsed_ms": None, "payload": payload}
+            for url in self._search_endpoints:
+                last["endpoint"] = url
+                t0 = time.time()
+                try:
+                    self.api_calls += 1
+                    resp = requests.post(url, json=payload, headers=headers, timeout=30)
+                except Exception as e:
+                    last["status"] = None
+                    last["raw"] = f"request exception: {e}"
+                    continue
+                last["elapsed_ms"] = int((time.time() - t0) * 1000)
+                last["status"] = resp.status_code
+                try:
+                    raw = resp.json()
+                except Exception:
+                    raw = {"_non_json_body": resp.text[:2000]}
+                last["raw"] = raw
+                if resp.status_code == 200:
+                    items = (raw.get("Items") or raw.get("items") or
+                             (raw.get("searchResult") or {}).get("items") or [])
+                    last["items"] = [self._normalize_item(it) for it in items]
+                    last["item_count"] = len(items)
+                    return last
+                # non-200 -> try next endpoint
+            return last
 
-            try:
-                raw = resp.json()
-            except Exception:
-                raw = {"_non_json_body": resp.text[:2000]}
-            last_raw = raw
+        seen: set = set()
+        combined: list = []
+        pages_info: list = []
+        first_raw = None
+        first_status = None
+        first_payload = None
+        total_ms = 0
 
-            if resp.status_code == 200:
-                items = (
-                    raw.get("Items") or raw.get("items") or
-                    (raw.get("searchResult") or {}).get("items") or []
-                )
-                norm = [self._normalize_item(i) for i in items]
-                result.update(
-                    ok=True,
-                    request={"url": url, "headers": safe_headers, "payload": payload},
-                    response={
-                        "status": 200,
-                        "endpoint": url,
-                        "raw": raw,
-                        "item_count": len(items),
-                        "elapsed_ms": elapsed_ms,
-                    },
-                    items=norm,
-                )
-                return result
+        for page in range(1, max_pages + 1):
+            pr = _fetch_page(page)
+            if page == 1:
+                first_raw = pr["raw"]
+                first_status = pr["status"]
+                first_payload = pr["payload"]
+            if pr["elapsed_ms"]:
+                total_ms += pr["elapsed_ms"]
 
-            # Non-200: keep trying the next endpoint but remember the error.
+            new_count = 0
+            for it in pr["items"]:
+                asin = it.get("ASIN") or it.get("asin")
+                if asin and asin not in seen:
+                    seen.add(asin)
+                    combined.append(it)
+                    new_count += 1
 
+            pages_info.append({
+                "page": page, "status": pr["status"],
+                "found": pr["item_count"], "new": new_count,
+                "elapsed_ms": pr["elapsed_ms"],
+            })
+
+            # Stop conditions:
+            #  - a successful page with zero items => no more pages
+            #  - page 1 hard-failed (auth/endpoint) => nothing to paginate
+            if pr["status"] == 200 and pr["item_count"] == 0:
+                break
+            if page == 1 and pr["status"] != 200:
+                break
+
+        # Show the request with itemPage expressed as the scanned range.
+        req_payload = dict(first_payload or {})
+        pages_scanned = len(pages_info)
+        req_payload["itemPage"] = f"1..{pages_scanned}"
+
+        ok = len(combined) > 0
         result.update(
-            ok=False,
-            request={"url": last_endpoint, "headers": safe_headers, "payload": payload},
+            ok=ok,
+            request={"url": self._search_endpoints[0], "headers": safe_headers,
+                     "payload": req_payload},
             response={
-                "status": last_status,
-                "endpoint": last_endpoint,
-                "raw": last_raw,
-                "item_count": 0,
-                "elapsed_ms": None,
+                "status": first_status,
+                "endpoint": self._search_endpoints[0],
+                "raw": first_raw,                 # first page only (keeps JSON readable)
+                "pages": pages_info,
+                "pages_scanned": pages_scanned,
+                "item_count": len(combined),      # combined, deduplicated
+                "elapsed_ms": total_ms or None,
             },
-            error=f"No endpoint returned items (last status: {last_status})",
+            items=combined,
+            error=None if ok else f"No items across {pages_scanned} page(s) (first status: {first_status})",
         )
         return result
 

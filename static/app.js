@@ -734,7 +734,6 @@ async function runCatTest() {
             min_saving:     parseInt(document.getElementById('cat_min_saving').value || '0'),
             min_price:      parseFloat(document.getElementById('cat_min_price').value || '0'),
             max_price:      parseFloat(document.getElementById('cat_max_price').value || '450'),
-            item_page:      parseInt(document.getElementById('cat_item_page').value || '1'),
             item_count:     parseInt(document.getElementById('cat_item_count').value || '10'),
         };
         const res = await fetch('/api/raw_search', {
@@ -749,8 +748,9 @@ async function runCatTest() {
         document.getElementById('cat-summary').innerHTML = `
             <div class="test-stat"><label>OK</label><span>${data.ok ? '✅' : '❌'}</span></div>
             <div class="test-stat"><label>HTTP Status</label><span>${resp.status ?? '—'}</span></div>
-            <div class="test-stat"><label>Items Found</label><span>${resp.item_count ?? (data.items || []).length}</span></div>
-            <div class="test-stat"><label>Latency</label><span>${resp.elapsed_ms != null ? resp.elapsed_ms + 'ms' : '—'}</span></div>
+            <div class="test-stat"><label>Items (deduped)</label><span>${resp.item_count ?? (data.items || []).length}</span></div>
+            <div class="test-stat"><label>Pages Scanned</label><span>${resp.pages_scanned ?? '—'}</span></div>
+            <div class="test-stat"><label>Total Latency</label><span>${resp.elapsed_ms != null ? resp.elapsed_ms + 'ms' : '—'}</span></div>
         `;
         document.getElementById('cat-request-json').textContent =
             JSON.stringify(data.request || {}, null, 2);
@@ -813,7 +813,6 @@ async function runBatchTest() {
             sort_by:     document.getElementById('batch_sort_by').value,
             min_price:   parseFloat(document.getElementById('batch_min_price').value || '0'),
             max_price:   parseFloat(document.getElementById('batch_max_price').value || '450'),
-            item_page:   parseInt(document.getElementById('batch_item_page').value || '1'),
             item_count:  parseInt(document.getElementById('batch_item_count').value || '10'),
             category_ids: ids,
             use_category_saving: overrideRaw === '',

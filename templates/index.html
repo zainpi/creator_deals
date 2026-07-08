@@ -270,8 +270,8 @@
 
             <div class="test-filter-row">
                 <div class="filter-group">
-                    <label>Item Page (1–10)</label>
-                    <input id="cat_item_page" type="number" value="1" min="1" max="10">
+                    <label>Pages</label>
+                    <input id="cat_item_page" type="text" value="All 1–10 (auto)" disabled title="Every run scans all 10 pages and de-duplicates by ASIN">
                 </div>
                 <div class="filter-group">
                     <label>Item Count (≤10)</label>
@@ -353,8 +353,8 @@
             </div>
             <div class="test-filter-row">
                 <div class="filter-group">
-                    <label>Item Page</label>
-                    <input id="batch_item_page" type="number" value="1" min="1" max="10">
+                    <label>Pages</label>
+                    <input id="batch_item_page" type="text" value="All 1–10 (auto)" disabled title="Each category scans all 10 pages">
                 </div>
                 <div class="filter-group">
                     <label>Item Count</label>
@@ -446,7 +446,7 @@
 
 </div>
 
-<script src="/static/app.js?v=19"></script>
+<script src="/static/app.js?v=20"></script>
 
 </body>
 </html>
