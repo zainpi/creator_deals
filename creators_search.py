@@ -273,6 +273,7 @@ class CreatorsSearch:
         browse_node_id: str | None = None,
         min_price: float = 0.0,
         item_count: int | None = None,
+        delivery_flags: list | None = None,
     ) -> dict:
         """
         One canonical camelCase payload.  No more 5-6 variants.
@@ -285,16 +286,21 @@ class CreatorsSearch:
         - sortBy "Price:LowToHigh" — combined with minSavingPercent this surfaces
           the cheapest genuinely-discounted items first
         """
-        # deliveryFlags: read from config if present. By default do NOT send
-        # the deliveryFlags parameter (leave it out) to avoid catalog enum issues.
-        # Set config['amazon']['delivery_flags'] = "PRIME" to request Prime-only.
-        df_cfg = self.config.get("amazon", {}).get("delivery_flags", "")
-        if isinstance(df_cfg, str):
-            df_list = [p.strip() for p in df_cfg.split(",") if p.strip()]
-        elif isinstance(df_cfg, (list, tuple)):
-            df_list = list(df_cfg)
+        # deliveryFlags: an explicit `delivery_flags` argument (from the caller,
+        # e.g. the raw-search UI toggle) takes precedence. Otherwise fall back to
+        # config['amazon']['delivery_flags']. By default none is sent.
+        # Valid values per the Creators API: AmazonGlobal, FreeShipping,
+        # FulfilledByAmazon, Prime.
+        if delivery_flags is not None:
+            df_list = [str(f).strip() for f in delivery_flags if str(f).strip()]
         else:
-            df_list = []
+            df_cfg = self.config.get("amazon", {}).get("delivery_flags", "")
+            if isinstance(df_cfg, str):
+                df_list = [p.strip() for p in df_cfg.split(",") if p.strip()]
+            elif isinstance(df_cfg, (list, tuple)):
+                df_list = list(df_cfg)
+            else:
+                df_list = []
 
         payload: dict = {
             "marketplace":        f"www.amazon.{self._tld_for_marketplace(self.marketplace)}",
@@ -304,9 +310,12 @@ class CreatorsSearch:
             "condition":          condition,
             "availability":       availability,
             "maxPrice":           int(float(max_price) * 100),  # cents
-            "keywords":           keywords,
             "resources":          self._get_resources(),
         }
+        # keywords: the API rejects an empty string. Send it only when non-empty
+        # so a browse-node-only search (keywords blank + browseNodeId set) works.
+        if keywords and str(keywords).strip():
+            payload["keywords"] = str(keywords).strip()
         # minSavingPercent: per the Creators SearchItems spec this is a "Positive
         # Integer less than 100" whose default is None (omitted). Amazon applies
         # it SERVER-SIDE, returning only items with >= this saving %. Send it ONLY
@@ -808,6 +817,7 @@ class CreatorsSearch:
         use_keepa: bool = False,
         keepa=None,
         keepa_domain: str | None = None,
+        delivery_flags: list | None = None,
     ) -> dict:
         """
         Run SearchItems across ALL pages (1..max_pages, default 10 — the API cap)
@@ -832,6 +842,19 @@ class CreatorsSearch:
         result: dict = {"ok": False, "request": None, "response": None,
                         "items": [], "error": None}
 
+        # SearchItems needs a real query: at least keywords OR a browse node.
+        # A searchIndex alone (e.g. "Appliances") is only a category scope and
+        # will return nothing, so fail fast with a clear message.
+        if not (keywords or "").strip() and not (browse_node_id or ""):
+            result["error"] = (
+                "No search query. Enter Keywords (e.g. 'Backöfen') or a Browse "
+                "Node ID — a Search Index like 'Appliances' on its own is just a "
+                "category scope and returns no items."
+            )
+            result["response"] = {"status": None, "item_count": 0,
+                                  "fetched_count": 0, "pages_scanned": 0}
+            return result
+
         max_pages = max(1, min(int(max_pages or 10), 10))
         partner_tag = self._resolve_partner_tag()
 
@@ -852,7 +875,7 @@ class CreatorsSearch:
                 min_saving_percent=server_min_saving, max_price=float(max_price or 0),
                 partner_tag=partner_tag, keywords=keywords or "",
                 browse_node_id=browse_node_id, min_price=float(min_price or 0),
-                item_count=item_count,
+                item_count=item_count, delivery_flags=delivery_flags,
             )
             result["error"] = f"Auth error: {e}"
             result["request"] = {"url": None, "payload": base_payload}
@@ -884,6 +907,7 @@ class CreatorsSearch:
                 max_price=float(max_price or 0), partner_tag=partner_tag,
                 keywords=keywords or "", browse_node_id=browse_node_id,
                 min_price=float(min_price or 0), item_count=item_count,
+                delivery_flags=delivery_flags,
             )
             last = {"status": None, "endpoint": None, "raw": None,
                     "items": [], "item_count": 0, "elapsed_ms": None, "payload": payload}
@@ -1019,8 +1043,8 @@ class CreatorsSearch:
                              The item's listing is annotated so the UI shows the
                              avg90 as the "was" price and the Keepa-based %.
                              Items with a known avg90 below the threshold are
-                             dropped; items Keepa has NO data for pass through
-                             (we can't disprove them) flagged keepa_status='no_data'.
+                             dropped; items Keepa has NO data for are dropped too
+                             (unvalidated), counted as keepa_status='no_data'.
 
         Returns (kept_items, summary_dict). May mutate items to attach Keepa fields.
         """
@@ -1098,16 +1122,16 @@ class CreatorsSearch:
                             break
 
                 if avg90 is None or not price or float(avg90) <= 0:
-                    # No usable Keepa baseline -> can't disprove, pass through.
+                    # No usable Keepa baseline -> can't validate the deal, drop it.
                     it["KeepaAvg90"] = avg90
                     it["KeepaSaving"] = None
                     it["KeepaStatus"] = "no_data"
                     it["KeepaSource"] = source
                     summary["keepa_no_data"] += 1
+                    summary["dropped"] += 1
                     if len(debug) < 20:
                         debug.append({"asin": it.get("ASIN"), "price": price,
                                       "avg90": avg90, "saving": None, "source": source})
-                    kept.append(it)
                     continue
 
                 keepa_saving = round((float(avg90) - float(price)) / float(avg90) * 100, 2)

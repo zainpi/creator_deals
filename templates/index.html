@@ -285,6 +285,13 @@
                     </label>
                 </div>
                 <div class="filter-group" style="align-self:flex-end;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"
+                           title="When on, sends deliveryFlags:[FulfilledByAmazon] so only items with at least one FBA (Fulfilled by Amazon) offer are returned.">
+                        <input id="cat_use_fba" type="checkbox" style="width:auto;margin:0;">
+                        📦 FBA only
+                    </label>
+                </div>
+                <div class="filter-group" style="align-self:flex-end;">
                     <button class="btn btn-test" onclick="runCatTest()">🔍 Run Raw Search</button>
                 </div>
             </div>

@@ -736,6 +736,7 @@ async function runCatTest() {
             max_price:      parseFloat(document.getElementById('cat_max_price').value || '450'),
             item_count:     parseInt(document.getElementById('cat_item_count').value || '10'),
             use_keepa:      !!document.getElementById('cat_use_keepa')?.checked,
+            use_fba:        !!document.getElementById('cat_use_fba')?.checked,
         };
         const res = await fetch('/api/raw_search', {
             method: 'POST',
@@ -788,7 +789,7 @@ async function runCatTest() {
         const dlBtn = document.getElementById('cat-download-csv');
         if (dlBtn) dlBtn.disabled = items.length === 0;
         document.getElementById('cat-items').innerHTML = items.length === 0
-            ? '<p class="loading">No items returned.</p>'
+            ? `<p class="loading">${_esc(data.error || 'No items returned.')}</p>`
             : items.map(renderRawCard).join('');
     } catch (e) {
         console.error('runCatTest error:', e);

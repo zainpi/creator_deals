@@ -410,6 +410,12 @@ def _run_diagnostic(cs, params):
     keepa = _build_keepa_service() if use_keepa else None
     domain = str(params.get("marketplace") or "DE").upper()
 
+    # deliveryFlags: accept an explicit list, or the `use_fba` toggle shortcut.
+    # None => fall back to config default (unchanged behaviour when toggle is off).
+    delivery_flags = params.get("delivery_flags")
+    if delivery_flags is None and params.get("use_fba"):
+        delivery_flags = ["FulfilledByAmazon"]
+
     return cs.diagnostic_search(
         search_index=str(params.get("search_index") or "All").strip(),
         keywords=str(params.get("keywords") or "").strip(),
@@ -424,6 +430,7 @@ def _run_diagnostic(cs, params):
         use_keepa=use_keepa,
         keepa=keepa,
         keepa_domain=domain,
+        delivery_flags=delivery_flags,
     )
 
 
