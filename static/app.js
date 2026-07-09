@@ -822,6 +822,24 @@ function renderRawCard(it) {
         ? `<a href="${_esc(url)}" target="_blank" rel="noopener noreferrer sponsored">${_esc(it.ASIN || '')} ↗</a>`
         : _esc(it.ASIN || '');
 
+    // Explicit percentage-discount line, always shown.
+    const pctText = (hasDeal)
+        ? `${sav}% off${keepaOn ? ' vs 90-day avg' : ''}`
+        : (keepaOn && keepaNoData ? 'No Keepa data' : 'No discount');
+    const pctColor = hasDeal ? '#e53e3e' : '#888';
+    const discountLine = `
+        <div class="raw-discount" style="font-weight:700;color:${pctColor};margin-top:2px;" title="${savTitle}">
+            ${hasDeal ? '🔻 ' : ''}${_esc(pctText)}
+        </div>`;
+
+    // Forwarding (affiliate) link button — DetailPageURL already carries the tag.
+    const fwdBtn = url
+        ? `<a class="raw-fwd-link" href="${_esc(url)}" target="_blank" rel="noopener noreferrer sponsored"
+              style="display:block;margin-top:8px;text-align:center;padding:6px 8px;border-radius:6px;
+                     background:linear-gradient(135deg,#ff9900,#e88a00);color:#111;font-weight:600;
+                     text-decoration:none;font-size:.85em;">🔗 View on Amazon ↗</a>`
+        : '';
+
     return `
         <div class="product-card">
             ${img ? (url
@@ -830,11 +848,13 @@ function renderRawCard(it) {
             <div class="product-info">
                 <div class="product-asin">${asinHtml}</div>
                 <div class="product-title">${_esc(title.slice(0, 90))}</div>
+                ${discountLine}
                 <div class="product-metrics">
                     <span class="metric">💶 ${priceHtml}</span>
                     ${savBadge}
                     <span class="metric" title="Category">${_esc(it.Category || '—')}</span>
                 </div>
+                ${fwdBtn}
             </div>
         </div>`;
 }
