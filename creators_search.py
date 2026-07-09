@@ -529,6 +529,16 @@ class CreatorsSearch:
             if tag:
                 detail_url += f"?tag={tag}"
 
+        # EAN/GTIN codes (from itemInfo.externalIds) — used as a fallback key for
+        # Keepa when an ASIN isn't tracked / has thin history on the domain.
+        eans = (
+            self._norm_get(item, ["itemInfo", "externalIds", "eans", "displayValues"]) or
+            self._norm_get(item, ["ItemInfo", "ExternalIds", "EANs", "DisplayValues"]) or
+            self._norm_get(item, ["itemInfo", "externalIds", "eanList"]) or []
+        )
+        if not isinstance(eans, list):
+            eans = [eans] if eans else []
+
         return {
             "ASIN":           asin,
             "ItemInfo":       {"Title": {"DisplayValue": title}},
@@ -538,6 +548,7 @@ class CreatorsSearch:
             "Category":       category,
             "ParentASIN":     item.get("parentASIN") or item.get("ParentASIN"),
             "DetailPageURL":  detail_url,
+            "EANs":           [str(e) for e in eans if e],
         }
 
     # =========================================================================
@@ -1052,18 +1063,50 @@ class CreatorsSearch:
                 summary["kept"] = len(items)
                 return list(items), summary
 
+            # EAN fallback: for items the ASIN lookup didn't price, try their EAN.
+            need_ean = [it for it in items
+                        if avg90_map.get(it.get("ASIN")) is None and it.get("EANs")]
+            ean_map = {}
+            if need_ean and hasattr(keepa, "get_avg90_by_eans"):
+                all_eans = []
+                for it in need_ean:
+                    all_eans.extend(it.get("EANs") or [])
+                try:
+                    ean_map = keepa.get_avg90_by_eans(all_eans, domain=domain) or {}
+                    summary["keepa_ean_queried"] = len(set(all_eans))
+                except Exception as e:
+                    logger.error(f"[CREATORS] Keepa EAN lookup failed: {e}")
+                    summary["keepa_error"] = f"EAN lookup failed: {e}"
+
+            summary.setdefault("keepa_ean_resolved", 0)
+            debug = []  # small per-item sample so the user can SEE the numbers
+
             kept = []
             for it in items:
                 lst = _primary(it)
                 price = (lst or {}).get("Price", {}).get("Amount") if lst else None
                 avg90 = avg90_map.get(it.get("ASIN"))
+                source = "asin"
+
+                # Fall back to EAN-derived avg90 when the ASIN had none.
+                if (avg90 is None) and it.get("EANs"):
+                    for ean in it["EANs"]:
+                        if ean_map.get(ean) is not None:
+                            avg90 = ean_map[ean]
+                            source = "ean"
+                            summary["keepa_ean_resolved"] += 1
+                            break
 
                 if avg90 is None or not price or float(avg90) <= 0:
                     # No usable Keepa baseline -> can't disprove, pass through.
                     it["KeepaAvg90"] = avg90
                     it["KeepaSaving"] = None
                     it["KeepaStatus"] = "no_data"
+                    it["KeepaSource"] = source
                     summary["keepa_no_data"] += 1
+                    if len(debug) < 20:
+                        debug.append({"asin": it.get("ASIN"), "price": price,
+                                      "avg90": avg90, "saving": None, "source": source})
                     kept.append(it)
                     continue
 
@@ -1071,11 +1114,17 @@ class CreatorsSearch:
                 it["KeepaAvg90"] = float(avg90)
                 it["KeepaSaving"] = keepa_saving
                 it["KeepaStatus"] = "ok"
+                it["KeepaSource"] = source
                 # Surface Keepa numbers in the card: avg90 as the "was" price and
                 # the Keepa-derived % as the discount badge.
                 if lst is not None:
                     lst.setdefault("Price", {})["SavingBasisAmount"] = float(avg90)
                     lst["SavingBasis"] = keepa_saving
+
+                if len(debug) < 20:
+                    debug.append({"asin": it.get("ASIN"), "price": price,
+                                  "avg90": float(avg90), "saving": keepa_saving,
+                                  "source": source})
 
                 if keepa_saving >= threshold:
                     kept.append(it)
@@ -1083,6 +1132,11 @@ class CreatorsSearch:
                     summary["dropped"] += 1
 
             summary["kept"] = len(kept)
+            summary["keepa_debug"] = debug
+            # Highest saving among fetched items — tells the user how close they
+            # are to the threshold when nothing passes.
+            savings = [d["saving"] for d in debug if d["saving"] is not None]
+            summary["keepa_max_saving_sample"] = max(savings) if savings else None
             return kept, summary
 
         # ---- Native mode: trust Amazon's server-side minSavingPercent ----

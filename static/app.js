@@ -762,10 +762,22 @@ async function runCatTest() {
             <div class="test-stat"><label>Pages Scanned</label><span>${resp.pages_scanned ?? '—'}</span></div>
             <div class="test-stat"><label>Total Latency</label><span>${resp.elapsed_ms != null ? resp.elapsed_ms + 'ms' : '—'}</span></div>
             ${flt.mode === 'keepa_avg90'
-                ? `<div class="test-stat"><label>Keepa</label><span style="font-size:.8em;">${flt.keepa_queried || 0} queried · ${flt.keepa_no_data || 0} no-data${flt.keepa_error ? ' · ⚠️' : ''}</span></div>`
+                ? `<div class="test-stat"><label>Keepa</label><span style="font-size:.8em;">${flt.keepa_queried || 0} ASIN · ${flt.keepa_ean_resolved || 0} via EAN · ${flt.keepa_no_data || 0} no-data${flt.keepa_error ? ' · ⚠️' : ''}</span></div>`
+                : ''}
+            ${flt.mode === 'keepa_avg90' && flt.keepa_max_saving_sample != null
+                ? `<div class="test-stat"><label>Best saving (sample)</label><span>${flt.keepa_max_saving_sample}%</span></div>`
                 : ''}
         `;
         if (flt.keepa_error) console.warn('Keepa filter note:', flt.keepa_error);
+        if (flt.keepa_debug) console.table(flt.keepa_debug);
+        // When Keepa filtered everything out, hint at why using the sampled numbers.
+        if (flt.mode === 'keepa_avg90' && (resp.item_count === 0) && flt.keepa_max_saving_sample != null) {
+            const el = document.getElementById('cat-items');
+            if (el) el.innerHTML =
+                `<p class="loading">No item reached ${flt.min_saving_percent}% below its Keepa 90-day average. ` +
+                `Best in this batch was <b>${flt.keepa_max_saving_sample}%</b>. ` +
+                `Lower Min Saving % or check the console table for per-item avg90 vs price.</p>`;
+        }
         document.getElementById('cat-request-json').textContent =
             JSON.stringify(data.request || {}, null, 2);
         document.getElementById('cat-response-json').textContent =

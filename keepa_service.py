@@ -204,6 +204,62 @@ class KeepaService:
                         f"{((len(to_query) - 1) // 100) + 1} request(s)")
         return out
 
+    def get_avg90_by_eans(self, eans, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
+        """
+        Look up the Keepa 90-day average price by EAN/GTIN code instead of ASIN.
+
+        Some ASINs the Creators API returns (seller/marketplace variants) are
+        tracked thinly or not at all on a given Keepa domain, while the same
+        product resolves fine via its EAN. Keepa's query supports code lookups
+        (product_code_is_asin=False).
+
+        Returns {ean: avg90_price_or_None}. Cached under ("avg90ean", ean).
+        """
+        out = {}
+        to_query = []
+        for ean in eans:
+            if not ean:
+                continue
+            ean = str(ean)
+            ck = ("avg90ean", ean, price_type)
+            if ck in self.cache:
+                out[ean] = self.cache[ck]
+            elif ean not in to_query:
+                to_query.append(ean)
+
+        for i in range(0, len(to_query), 100):
+            chunk = to_query[i:i + 100]
+            try:
+                products = self.api.query(
+                    chunk, domain=domain, stats=90, history=False,
+                    product_code_is_asin=False,
+                ) or []
+            except Exception as e:
+                logger.error(f"[KEEPA] avg90-by-EAN batch error: {e}")
+                products = []
+
+            # Map every EAN a returned product advertises to its avg90, so we can
+            # match back to the code we queried with.
+            matched = {}
+            for product in products:
+                avg = self._avg90_from_product(product, price_type)
+                codes = []
+                for key in ("eanList", "upcList"):
+                    vals = product.get(key) or []
+                    codes.extend(str(v) for v in vals if v)
+                for code in codes:
+                    if code not in matched or matched[code] is None:
+                        matched[code] = avg
+
+            for ean in chunk:
+                val = matched.get(ean)
+                self.cache[("avg90ean", ean, price_type)] = val
+                out[ean] = val
+
+        if to_query:
+            logger.info(f"[KEEPA] avg90-by-EAN for {len(to_query)} code(s)")
+        return out
+
     @staticmethod
     def _coerce_rating(data):
         """Extract a numeric positive-feedback % from a Keepa seller record.
