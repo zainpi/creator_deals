@@ -303,11 +303,21 @@ class CreatorsSearch:
             "sortBy":             sort_by,
             "condition":          condition,
             "availability":       availability,
-            "minSavingPercent":   min_saving_percent,
             "maxPrice":           int(float(max_price) * 100),  # cents
             "keywords":           keywords,
             "resources":          self._get_resources(),
         }
+        # minSavingPercent: per the Creators SearchItems spec this is a "Positive
+        # Integer less than 100" whose default is None (omitted). Amazon applies
+        # it SERVER-SIDE, returning only items with >= this saving %. Send it ONLY
+        # when it's a valid 1..99 value; omit entirely otherwise (0 is invalid and
+        # would just be ignored / rejected).
+        try:
+            _msp = int(min_saving_percent)
+        except (TypeError, ValueError):
+            _msp = 0
+        if 1 <= _msp <= 99:
+            payload["minSavingPercent"] = _msp
         # Category-ID search: restrict results to a browse node when supplied.
         # (The catalog endpoint expects a string browseNodeId.)
         if browse_node_id:
@@ -502,6 +512,23 @@ class CreatorsSearch:
         if not category:
             category = "Unknown"
 
+        # Build a forwarding (affiliate) link from ASIN + marketplace TLD + tag.
+        # Prefer a URL Amazon already returned; otherwise construct the canonical
+        # /dp/ link and append the partner tag when we have one.
+        detail_url = (
+            self._norm_get(item, ["detailPageURL"]) or
+            self._norm_get(item, ["DetailPageURL"])
+        )
+        if not detail_url and asin:
+            tld = self._tld_for_marketplace(self.marketplace)
+            detail_url = f"https://www.amazon.{tld}/dp/{asin}"
+            try:
+                tag = self._resolve_partner_tag()
+            except Exception:
+                tag = None
+            if tag:
+                detail_url += f"?tag={tag}"
+
         return {
             "ASIN":           asin,
             "ItemInfo":       {"Title": {"DisplayValue": title}},
@@ -510,6 +537,7 @@ class CreatorsSearch:
             "BrowseNodeInfo": {"BrowseNodes": browse_nodes},
             "Category":       category,
             "ParentASIN":     item.get("parentASIN") or item.get("ParentASIN"),
+            "DetailPageURL":  detail_url,
         }
 
     # =========================================================================
@@ -766,6 +794,9 @@ class CreatorsSearch:
         item_page: int = 1,
         item_count: int | None = None,
         max_pages: int = 10,
+        use_keepa: bool = False,
+        keepa=None,
+        keepa_domain: str | None = None,
     ) -> dict:
         """
         Run SearchItems across ALL pages (1..max_pages, default 10 — the API cap)
@@ -793,6 +824,13 @@ class CreatorsSearch:
         max_pages = max(1, min(int(max_pages or 10), 10))
         partner_tag = self._resolve_partner_tag()
 
+        # How the saving threshold is enforced:
+        #   Keepa OFF -> let AMAZON filter server-side via minSavingPercent
+        #                (the native, spec-compliant path — "results from Amazon").
+        #   Keepa ON  -> fetch everything (minSavingPercent omitted) and filter
+        #                client-side against the Keepa 90-day average instead.
+        server_min_saving = 0 if use_keepa else int(min_saving_percent or 0)
+
         # Auth once for the whole page loop.
         try:
             token, cred_version = self._get_access_token()
@@ -800,7 +838,7 @@ class CreatorsSearch:
             base_payload = self._build_payload(
                 page=1, search_index=search_index or "All", sort_by=sort_by or "Featured",
                 condition=condition or "New", availability=availability or "Available",
-                min_saving_percent=int(min_saving_percent or 0), max_price=float(max_price or 0),
+                min_saving_percent=server_min_saving, max_price=float(max_price or 0),
                 partner_tag=partner_tag, keywords=keywords or "",
                 browse_node_id=browse_node_id, min_price=float(min_price or 0),
                 item_count=item_count,
@@ -828,7 +866,10 @@ class CreatorsSearch:
                 page=page_num, search_index=search_index or "All",
                 sort_by=sort_by or "Featured", condition=condition or "New",
                 availability=availability or "Available",
-                min_saving_percent=int(min_saving_percent or 0),
+                # Keepa OFF -> send the real threshold so Amazon filters server-side.
+                # Keepa ON  -> server_min_saving is 0 (omitted) and we filter by the
+                #              Keepa 90-day average in _apply_saving_filter instead.
+                min_saving_percent=server_min_saving,
                 max_price=float(max_price or 0), partner_tag=partner_tag,
                 keywords=keywords or "", browse_node_id=browse_node_id,
                 min_price=float(min_price or 0), item_count=item_count,
@@ -905,7 +946,20 @@ class CreatorsSearch:
         pages_scanned = len(pages_info)
         req_payload["itemPage"] = f"1..{pages_scanned}"
 
-        ok = len(combined) > 0
+        # Resolve the saving threshold. In native (Keepa OFF) mode Amazon has
+        # already filtered by minSavingPercent server-side, so this is a no-op
+        # pass-through. In Keepa mode it filters against the 90-day average.
+        fetched_count = len(combined)
+        kept, filter_summary = self._apply_saving_filter(
+            combined,
+            min_saving_percent=int(min_saving_percent or 0),
+            use_keepa=bool(use_keepa),
+            keepa=keepa,
+            domain=(keepa_domain or self.marketplace or "DE"),
+            server_filtered=(server_min_saving > 0),
+        )
+
+        ok = len(kept) > 0
         result.update(
             ok=ok,
             request={"url": self._search_endpoints[0], "headers": safe_headers,
@@ -916,13 +970,126 @@ class CreatorsSearch:
                 "raw": first_raw,                 # first page only (keeps JSON readable)
                 "pages": pages_info,
                 "pages_scanned": pages_scanned,
-                "item_count": len(combined),      # combined, deduplicated
+                "item_count": len(kept),          # after saving filter
+                "fetched_count": fetched_count,   # before saving filter (Amazon returned)
                 "elapsed_ms": total_ms or None,
             },
-            items=combined,
-            error=None if ok else f"No items across {pages_scanned} page(s) (first status: {first_status})",
+            items=kept,
+            filter=filter_summary,
+            error=None if ok else (
+                f"No items passed the saving filter "
+                f"({fetched_count} fetched, first status: {first_status})"
+                if fetched_count else
+                f"No items across {pages_scanned} page(s) (first status: {first_status})"
+            ),
         )
         return result
+
+    # =========================================================================
+    # Saving-threshold filter (Keepa 90-day avg  OR  "option 3" pass-through)
+    # =========================================================================
+
+    def _apply_saving_filter(self, items, *, min_saving_percent, use_keepa,
+                             keepa, domain, server_filtered=False):
+        """
+        Decide which normalized items pass the saving threshold.
+
+        Modes:
+
+          use_keepa=False -> NATIVE: Amazon already filtered by minSavingPercent
+                             server-side (`server_filtered=True` when threshold>0),
+                             so we simply trust and keep what it returned. When the
+                             threshold is 0 nothing was filtered and everything —
+                             including listings with no savingBasis — is kept.
+
+          use_keepa=True  -> saving is computed from the Keepa 90-day AVERAGE price
+                             (same source as KeepaBot-master: stats['avg'][NEW]):
+                                 saving% = (avg90 - price) / avg90 * 100
+                             The item's listing is annotated so the UI shows the
+                             avg90 as the "was" price and the Keepa-based %.
+                             Items with a known avg90 below the threshold are
+                             dropped; items Keepa has NO data for pass through
+                             (we can't disprove them) flagged keepa_status='no_data'.
+
+        Returns (kept_items, summary_dict). May mutate items to attach Keepa fields.
+        """
+        threshold = int(min_saving_percent or 0)
+        summary = {
+            "mode": "keepa_avg90" if use_keepa else "amazon_native",
+            "server_filtered": bool(server_filtered),
+            "min_saving_percent": threshold,
+            "fetched": len(items),
+            "kept": 0,
+            "dropped": 0,
+            "keepa_no_data": 0,
+            "keepa_queried": 0,
+            "keepa_error": None,
+        }
+
+        def _primary(it):
+            lst = ((it.get("OffersV2") or {}).get("Listings") or [])
+            return lst[0] if lst else None
+
+        # ---- Keepa 90-day average mode -----------------------------------
+        if use_keepa:
+            if keepa is None:
+                summary["keepa_error"] = "Keepa not enabled/available; kept all items unfiltered."
+                for it in items:
+                    it["KeepaStatus"] = "unavailable"
+                summary["kept"] = len(items)
+                return list(items), summary
+
+            asins = [it.get("ASIN") for it in items if it.get("ASIN")]
+            avg90_map = {}
+            try:
+                avg90_map = keepa.get_avg90_batch(asins, domain=domain) or {}
+                summary["keepa_queried"] = len(asins)
+            except Exception as e:
+                logger.error(f"[CREATORS] Keepa avg90 lookup failed: {e}")
+                summary["keepa_error"] = f"Keepa lookup failed: {e}; kept all items unfiltered."
+                for it in items:
+                    it["KeepaStatus"] = "error"
+                summary["kept"] = len(items)
+                return list(items), summary
+
+            kept = []
+            for it in items:
+                lst = _primary(it)
+                price = (lst or {}).get("Price", {}).get("Amount") if lst else None
+                avg90 = avg90_map.get(it.get("ASIN"))
+
+                if avg90 is None or not price or float(avg90) <= 0:
+                    # No usable Keepa baseline -> can't disprove, pass through.
+                    it["KeepaAvg90"] = avg90
+                    it["KeepaSaving"] = None
+                    it["KeepaStatus"] = "no_data"
+                    summary["keepa_no_data"] += 1
+                    kept.append(it)
+                    continue
+
+                keepa_saving = round((float(avg90) - float(price)) / float(avg90) * 100, 2)
+                it["KeepaAvg90"] = float(avg90)
+                it["KeepaSaving"] = keepa_saving
+                it["KeepaStatus"] = "ok"
+                # Surface Keepa numbers in the card: avg90 as the "was" price and
+                # the Keepa-derived % as the discount badge.
+                if lst is not None:
+                    lst.setdefault("Price", {})["SavingBasisAmount"] = float(avg90)
+                    lst["SavingBasis"] = keepa_saving
+
+                if keepa_saving >= threshold:
+                    kept.append(it)
+                else:
+                    summary["dropped"] += 1
+
+            summary["kept"] = len(kept)
+            return kept, summary
+
+        # ---- Native mode: trust Amazon's server-side minSavingPercent ----
+        # Amazon already returned only qualifying items (or everything when the
+        # threshold was 0), so keep them all as-is.
+        summary["kept"] = len(items)
+        return list(items), summary
 
     # =========================================================================
     # Multi-page search with deduplication

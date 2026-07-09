@@ -735,6 +735,7 @@ async function runCatTest() {
             min_price:      parseFloat(document.getElementById('cat_min_price').value || '0'),
             max_price:      parseFloat(document.getElementById('cat_max_price').value || '450'),
             item_count:     parseInt(document.getElementById('cat_item_count').value || '10'),
+            use_keepa:      !!document.getElementById('cat_use_keepa')?.checked,
         };
         const res = await fetch('/api/raw_search', {
             method: 'POST',
@@ -745,19 +746,35 @@ async function runCatTest() {
 
         document.getElementById('cat-results').style.display = 'block';
         const resp = data.response || {};
+        const flt = data.filter || {};
+        const modeLabel = flt.mode === 'keepa_avg90'
+            ? `Keepa 90-day avg ≥ ${flt.min_saving_percent}%`
+            : (flt.min_saving_percent > 0
+                ? `Amazon minSavingPercent ≥ ${flt.min_saving_percent}% (server-side)`
+                : `Amazon · no saving filter (all items)`);
+        const fetched = resp.fetched_count ?? flt.fetched;
         document.getElementById('cat-summary').innerHTML = `
             <div class="test-stat"><label>OK</label><span>${data.ok ? '✅' : '❌'}</span></div>
             <div class="test-stat"><label>HTTP Status</label><span>${resp.status ?? '—'}</span></div>
-            <div class="test-stat"><label>Items (deduped)</label><span>${resp.item_count ?? (data.items || []).length}</span></div>
+            <div class="test-stat"><label>Items (kept)</label><span>${resp.item_count ?? (data.items || []).length}</span></div>
+            <div class="test-stat"><label>Fetched → Filtered</label><span>${fetched ?? '—'} → ${resp.item_count ?? '—'}</span></div>
+            <div class="test-stat"><label>Filter</label><span style="font-size:.8em;">${modeLabel}</span></div>
             <div class="test-stat"><label>Pages Scanned</label><span>${resp.pages_scanned ?? '—'}</span></div>
             <div class="test-stat"><label>Total Latency</label><span>${resp.elapsed_ms != null ? resp.elapsed_ms + 'ms' : '—'}</span></div>
+            ${flt.mode === 'keepa_avg90'
+                ? `<div class="test-stat"><label>Keepa</label><span style="font-size:.8em;">${flt.keepa_queried || 0} queried · ${flt.keepa_no_data || 0} no-data${flt.keepa_error ? ' · ⚠️' : ''}</span></div>`
+                : ''}
         `;
+        if (flt.keepa_error) console.warn('Keepa filter note:', flt.keepa_error);
         document.getElementById('cat-request-json').textContent =
             JSON.stringify(data.request || {}, null, 2);
         document.getElementById('cat-response-json').textContent =
             JSON.stringify(data.response || { error: data.error }, null, 2);
 
         const items = data.items || [];
+        lastCatItems = items;
+        const dlBtn = document.getElementById('cat-download-csv');
+        if (dlBtn) dlBtn.disabled = items.length === 0;
         document.getElementById('cat-items').innerHTML = items.length === 0
             ? '<p class="loading">No items returned.</p>'
             : items.map(renderRawCard).join('');
@@ -773,22 +790,95 @@ async function runCatTest() {
 function renderRawCard(it) {
     const listing = ((it.OffersV2 || {}).Listings || [{}])[0] || {};
     const price = (listing.Price || {}).Amount;
-    const sav   = listing.SavingBasis;
+    const was   = (listing.Price || {}).SavingBasisAmount;   // crossed-out "was" price
+    const sav   = listing.SavingBasis;                       // computed savings %
     const img   = ((((it.Images || {}).Primary || {}).Medium || {}).URL) || '';
     const title = ((it.ItemInfo || {}).Title || {}).DisplayValue || '';
+    const url   = it.DetailPageURL || '';
+
+    // Keepa mode annotates items with KeepaStatus / KeepaAvg90 / KeepaSaving.
+    const keepaOn = it.KeepaStatus !== undefined;
+    const keepaNoData = it.KeepaStatus === 'no_data' || it.KeepaStatus === 'unavailable' || it.KeepaStatus === 'error';
+
+    // Discount badge: green when there's a real % off, muted "No deal" otherwise.
+    const hasDeal = sav != null && !isNaN(sav) && Number(sav) > 0;
+    const wasLabel = keepaOn ? '90-day avg' : 'was';
+    const savTitle = keepaOn ? `Saving vs Keepa 90-day average` : 'Discount off the was-price';
+    let savBadge;
+    if (keepaOn && keepaNoData) {
+        savBadge = `<span class="metric" title="Keepa has no 90-day data for this ASIN — kept, not validated">📊 No Keepa data</span>`;
+    } else if (hasDeal) {
+        savBadge = `<span class="metric" style="background:linear-gradient(135deg,#e53e3e,#c53030);color:#fff;" title="${savTitle}">${keepaOn ? '📊' : '🏷️'} -${sav}%</span>`;
+    } else {
+        savBadge = `<span class="metric" title="No ${keepaOn ? 'Keepa saving' : 'savingBasis / percentage'} for this listing">🏷️ No deal</span>`;
+    }
+
+    // Price with strikethrough "was"/avg price when available.
+    const priceHtml = (was != null && !isNaN(was))
+        ? `<span style="text-decoration:line-through;opacity:.6;" title="${wasLabel}">${_money(was)}</span> → ${_money(price)}`
+        : _money(price);
+
+    const asinHtml = url
+        ? `<a href="${_esc(url)}" target="_blank" rel="noopener noreferrer sponsored">${_esc(it.ASIN || '')} ↗</a>`
+        : _esc(it.ASIN || '');
+
     return `
         <div class="product-card">
-            ${img ? `<img src="${_esc(img)}" alt="" style="width:100%;height:120px;object-fit:contain;background:#fff;border-radius:6px;">` : ''}
+            ${img ? (url
+                ? `<a href="${_esc(url)}" target="_blank" rel="noopener noreferrer sponsored"><img src="${_esc(img)}" alt="" style="width:100%;height:120px;object-fit:contain;background:#fff;border-radius:6px;"></a>`
+                : `<img src="${_esc(img)}" alt="" style="width:100%;height:120px;object-fit:contain;background:#fff;border-radius:6px;">`) : ''}
             <div class="product-info">
-                <div class="product-asin">${_esc(it.ASIN || '')}</div>
+                <div class="product-asin">${asinHtml}</div>
                 <div class="product-title">${_esc(title.slice(0, 90))}</div>
                 <div class="product-metrics">
-                    <span class="metric">💶 ${_money(price)}</span>
-                    <span class="metric">🏷️ ${sav != null ? sav + '%' : 'N/A'}</span>
+                    <span class="metric">💶 ${priceHtml}</span>
+                    ${savBadge}
                     <span class="metric" title="Category">${_esc(it.Category || '—')}</span>
                 </div>
             </div>
         </div>`;
+}
+
+// Holds the items from the most recent raw/category search, for CSV export.
+let lastCatItems = [];
+
+function downloadCatCsv() {
+    if (!lastCatItems || lastCatItems.length === 0) {
+        alert('No results to export — run a search first.');
+        return;
+    }
+    const cols = ['ASIN', 'Title', 'Price', 'WasPrice', 'DiscountPercent', 'Category', 'Link'];
+    const esc = (v) => {
+        const s = (v == null ? '' : String(v));
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = lastCatItems.map((it) => {
+        const listing = ((it.OffersV2 || {}).Listings || [{}])[0] || {};
+        const price = (listing.Price || {}).Amount;
+        const was   = (listing.Price || {}).SavingBasisAmount;
+        const sav   = listing.SavingBasis;
+        const title = ((it.ItemInfo || {}).Title || {}).DisplayValue || '';
+        return [
+            it.ASIN || '',
+            title,
+            price != null ? price : '',
+            was != null ? was : '',
+            (sav != null && !isNaN(sav)) ? sav : '',
+            it.Category || '',
+            it.DetailPageURL || '',
+        ].map(esc).join(',');
+    });
+    const csv = [cols.join(','), ...rows].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    a.href = url;
+    a.download = `creators_deals_${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // ============= BATCH: ALL CATEGORIES =============

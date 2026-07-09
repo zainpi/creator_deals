@@ -384,11 +384,32 @@ VALID_SORT_RAW = {
 }
 
 
+def _build_keepa_service():
+    """Build a KeepaService from config, or None if unavailable (no key etc.)."""
+    try:
+        from keepa_service import KeepaService
+        return KeepaService(config)
+    except Exception as e:
+        logger.warning(f"[APP] Keepa unavailable for raw search: {e}")
+        return None
+
+
 def _run_diagnostic(cs, params):
-    """Call diagnostic_search with sanitised params. Returns the result dict."""
+    """Call diagnostic_search with sanitised params. Returns the result dict.
+
+    When `use_keepa` is set, the saving threshold is enforced against the Keepa
+    90-day average price (KeepaBot-master method). Otherwise "option 3" applies:
+    listings Amazon returns with no savingBasis pass through instead of being
+    dropped.
+    """
     sort_by = str(params.get("sort_by") or "Featured").strip()
     if sort_by not in VALID_SORT_RAW:
         sort_by = "Featured"
+
+    use_keepa = bool(params.get("use_keepa"))
+    keepa = _build_keepa_service() if use_keepa else None
+    domain = str(params.get("marketplace") or "DE").upper()
+
     return cs.diagnostic_search(
         search_index=str(params.get("search_index") or "All").strip(),
         keywords=str(params.get("keywords") or "").strip(),
@@ -400,6 +421,9 @@ def _run_diagnostic(cs, params):
         max_price=float(params.get("max_price") or 450),
         item_page=int(params.get("item_page") or 1),
         item_count=(int(params["item_count"]) if params.get("item_count") else None),
+        use_keepa=use_keepa,
+        keepa=keepa,
+        keepa_domain=domain,
     )
 
 

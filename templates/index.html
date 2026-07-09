@@ -278,6 +278,13 @@
                     <input id="cat_item_count" type="number" value="10" min="1" max="10">
                 </div>
                 <div class="filter-group" style="align-self:flex-end;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"
+                           title="When on, the Min Saving % is measured against the Keepa 90-day average price (KeepaBot method). When off, listings Amazon returns with no discount data are kept instead of dropped (option 3).">
+                        <input id="cat_use_keepa" type="checkbox" style="width:auto;margin:0;">
+                        📊 Use Keepa 90-day avg
+                    </label>
+                </div>
+                <div class="filter-group" style="align-self:flex-end;">
                     <button class="btn btn-test" onclick="runCatTest()">🔍 Run Raw Search</button>
                 </div>
             </div>
@@ -293,6 +300,10 @@
             </div>
 
             <div id="cat-results" style="display:none;margin-top:16px;">
+                <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                    <button id="cat-download-csv" onclick="downloadCatCsv()" disabled
+                            class="btn" style="font-size:0.85em;">💾 Download CSV</button>
+                </div>
                 <div class="test-stats" id="cat-summary"></div>
                 <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;">
                     <div style="flex:1;min-width:320px;">
@@ -446,7 +457,7 @@
 
 </div>
 
-<script src="/static/app.js?v=20"></script>
+<script src="/static/app.js?v=21"></script>
 
 </body>
 </html>

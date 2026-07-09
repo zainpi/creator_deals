@@ -4,6 +4,10 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Keepa CSV/stats price-type index. KeepaBot-master reads stats["avg"][1]
+# (see country_query_configs.py -> "priceTypes": [1]); index 1 = NEW price.
+KEEPA_PRICE_TYPE_NEW = 1
+
 
 class KeepaService:
     """
@@ -127,6 +131,78 @@ class KeepaService:
         if to_query:
             logger.info(f"[KEEPA] Batch-validated {len(to_query)} ASIN(s) in {((len(to_query) - 1) // 100) + 1} request(s)")
         return results
+
+    # =====================================================================
+    # 90-day average price — same method as KeepaBot-master
+    # =====================================================================
+
+    @staticmethod
+    def _avg90_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
+        """
+        Read the 90-day average price from a Keepa product exactly like
+        KeepaBot-master's dealsBrowser does:
+
+            stats = product["stats"]              # requires stats=90 on query
+            avg   = stats["avg"][price_type]      # Keepa cents, price_type 1 = NEW
+            price = avg / 100                     # -> currency units
+
+        Keepa uses -1 (and sometimes 0) to mean "no data". Returns a float
+        price in currency units, or None when unavailable.
+        """
+        stats = product.get("stats") or {}
+        avg_arr = stats.get("avg")
+        if isinstance(avg_arr, list) and len(avg_arr) > price_type:
+            val = avg_arr[price_type]
+            if isinstance(val, (int, float)) and val > 0 and val != -1:
+                return round(val / 100, 2)
+        return None
+
+    def get_avg90_batch(self, asins, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
+        """
+        Fetch the Keepa 90-day average price for many ASINs (<=100 per request).
+
+        Returns {asin: avg90_price_or_None}. Uses/fills the shared self.cache
+        keyed as ("avg90", asin, price_type) so repeated runs are cheap.
+        """
+        out = {}
+        to_query = []
+        for asin in asins:
+            if not asin:
+                continue
+            ck = ("avg90", asin, price_type)
+            if ck in self.cache:
+                out[asin] = self.cache[ck]
+            elif asin not in to_query:
+                to_query.append(asin)
+
+        for i in range(0, len(to_query), 100):
+            chunk = to_query[i:i + 100]
+            try:
+                products = self.api.query(chunk, domain=domain, stats=90, history=False) or []
+            except Exception as e:
+                logger.error(f"[KEEPA] avg90 batch error: {e}")
+                products = []
+
+            returned = set()
+            for product in products:
+                asin = product.get("asin")
+                if not asin:
+                    continue
+                returned.add(asin)
+                val = self._avg90_from_product(product, price_type)
+                self.cache[("avg90", asin, price_type)] = val
+                out[asin] = val
+
+            # Cache misses as None so we don't re-query them this run.
+            for asin in chunk:
+                if asin not in returned:
+                    self.cache[("avg90", asin, price_type)] = None
+                    out[asin] = None
+
+        if to_query:
+            logger.info(f"[KEEPA] avg90 for {len(to_query)} ASIN(s) in "
+                        f"{((len(to_query) - 1) // 100) + 1} request(s)")
+        return out
 
     @staticmethod
     def _coerce_rating(data):
