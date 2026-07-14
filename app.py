@@ -9,12 +9,14 @@ from config_loader import load_config
 from scheduler import DealScheduler
 from testing_stats import TestingStats
 from database import (
-    init_db, reset_db, GLOBAL_FEED_USER_ID,
+    init_db, reset_db, GLOBAL_FEED_USER_ID, METHOD_FEED_USER_IDS,
     get_products_for_user, get_stats_for_user, clear_products_for_user,
     get_user_preferences, save_user_preferences,
     set_search_job, get_search_job,
     set_batch_job, get_batch_job,
     get_scanner_state, update_scanner_state,
+    get_method_nodes, set_method_nodes_enabled,
+    get_method_stats, get_method_engine_state, update_method_engine_state,
 )
 
 logging.basicConfig(
@@ -259,7 +261,7 @@ def api_test():
         test_config["filters"]["min_rating"] = params.get("min_rating", 4.0)
         test_config["filters"]["min_review_count"] = params.get("min_reviews", 10)
         test_config["ai"]["enabled"] = params.get("use_ai", True)
-        test_config["ai"]["minimum_score"] = params.get("min_ai_score", 7)
+        test_config["ai"]["minimum_score"] = params.get("min_ai_score", 50)
         if "keepa" not in test_config:
             test_config["keepa"] = {}
         test_config["keepa"]["enabled"] = params.get("use_keepa", test_config.get("keepa", {}).get("enabled", True))
@@ -307,7 +309,7 @@ def api_test():
                         except Exception as e:
                             logger.warning(f"[TEST] Keepa error for {asin}: {e}")
 
-                    ai_score = 5.0
+                    ai_score = 50.0
                     if test_config["ai"]["enabled"] and keepa_passed_item and title:
                         try:
                             ai_score = ai.score_deal(title, asin)
@@ -438,6 +440,13 @@ def _run_diagnostic(cs, params):
 def api_categories():
     """Serve the category test table (searchIndex, keywords, browseNodeId, ...)."""
     return jsonify(_load_categories())
+
+
+@app.route("/api/topcategories", methods=["GET"])
+def api_topcategories():
+    """Serve the top-level 'Pick a Category' table (searchIndex, German
+    displayName, parentBrowseNodeId for Method 2 — null where not yet known)."""
+    return jsonify(_load_topcategories())
 
 
 @app.route("/api/raw_search", methods=["POST"])
@@ -597,6 +606,146 @@ def api_batch_status():
     except Exception:
         job["result"] = None
     return jsonify(job)
+
+
+# ==================== Method 1 vs Method 2 comparison engine ====================
+#
+# Controls + status for method_scanner.py, which runs in the worker process
+# (see worker.py). This app process only reads/writes DB state — it never runs
+# the engine's ticks itself.
+
+_TOPCATEGORIES_PATH = os.path.join(os.path.dirname(__file__), "data", "topcategories.json")
+
+
+def _load_topcategories():
+    try:
+        with open(_TOPCATEGORIES_PATH, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except Exception as e:
+        logger.error(f"[APP] Could not load topcategories.json: {e}")
+        return []
+
+
+@app.route("/api/method_test/categories")
+def api_method_test_categories():
+    """Every top-level category, with which methods currently have browse-node
+    data (seeded into method_nodes by the worker on startup) and whether each
+    is switched on in the round robin — powers the 'Pick a Category' picker."""
+    tops = {t.get("searchIndex"): t for t in _load_topcategories() if t.get("searchIndex")}
+    nodes = get_method_nodes()
+
+    groups = {}  # (category, method) -> {node_count, enabled_count}
+    for n in nodes:
+        key = (n["category"], int(n["method"]))
+        g = groups.setdefault(key, {"node_count": 0, "enabled_count": 0})
+        g["node_count"] += 1
+        if n.get("enabled"):
+            g["enabled_count"] += 1
+
+    out = []
+    all_categories = set(tops.keys()) | {c for c, _ in groups.keys()}
+    for idx in sorted(all_categories):
+        top = tops.get(idx, {})
+        m1 = groups.get((idx, 1))
+        m2 = groups.get((idx, 2))
+        out.append({
+            "searchIndex": idx,
+            "displayName": top.get("displayName") or idx,
+            "method1": {"available": bool(m1), "nodeCount": (m1 or {}).get("node_count", 0),
+                       "enabled": bool(m1 and m1["enabled_count"] == m1["node_count"] and m1["node_count"] > 0)},
+            "method2": {"available": bool(m2), "nodeCount": (m2 or {}).get("node_count", 0),
+                       "enabled": bool(m2 and m2["enabled_count"] == m2["node_count"] and m2["node_count"] > 0)},
+        })
+    return jsonify(out)
+
+
+@app.route("/api/method_test/toggle", methods=["POST"])
+def api_method_test_toggle():
+    """Switch a (category, method) on/off in the round robin."""
+    data = request.json or {}
+    category = str(data.get("category") or "").strip()
+    method = data.get("method")
+    enabled = bool(data.get("enabled"))
+    marketplace = str(data.get("marketplace") or config.get("method_test", {}).get("marketplace", "DE")).upper()
+    if not category or method not in (1, 2):
+        return jsonify({"success": False, "error": "category and method (1 or 2) required"}), 400
+    set_method_nodes_enabled(marketplace, category, int(method), enabled)
+    return jsonify({"success": True})
+
+
+@app.route("/api/method_test/control", methods=["POST"])
+def api_method_test_control():
+    action = (request.json or {}).get("action", "")
+    if action == "start" or action == "resume":
+        update_method_engine_state(enabled=1)
+    elif action in ("pause", "stop"):
+        update_method_engine_state(enabled=0)
+    else:
+        return jsonify({"success": False, "error": "action must be 'start'/'resume' or 'pause'/'stop'"}), 400
+    return jsonify({"success": True, "state": get_method_engine_state()})
+
+
+@app.route("/api/method_test/status")
+def api_method_test_status():
+    mt_cfg = config.get("method_test", {}) or {}
+    daily_budget = int(mt_cfg.get("daily_budget_requests", 8640))
+
+    stats_rows = get_method_stats()
+    stats_by_key = {(r["category"], int(r["method"])): r for r in stats_rows}
+    calls_today = sum(r.get("creators_api_calls") or 0 for r in stats_rows)
+
+    nodes = get_method_nodes()
+    groups = {}
+    for n in nodes:
+        key = (n["category"], int(n["method"]))
+        g = groups.setdefault(key, {
+            "category": n["category"], "method": int(n["method"]),
+            "marketplace": n["marketplace"], "node_count": 0, "enabled_count": 0,
+            "price_cursors": [],
+        })
+        g["node_count"] += 1
+        if n.get("enabled"):
+            g["enabled_count"] += 1
+            g["price_cursors"].append(n.get("current_min_price") or 0)
+
+    targets = []
+    for key, g in sorted(groups.items()):
+        s = stats_by_key.get(key, {})
+        scanned = s.get("asins_scanned") or 0
+        posted = s.get("posted") or 0
+        targets.append({
+            "category": g["category"],
+            "method": g["method"],
+            "marketplace": g["marketplace"],
+            "enabled": g["enabled_count"] > 0,
+            "node_count": g["node_count"],
+            "enabled_node_count": g["enabled_count"],
+            "avg_price_floor": round(sum(g["price_cursors"]) / len(g["price_cursors"]), 2) if g["price_cursors"] else 0,
+            "creators_api_calls": s.get("creators_api_calls") or 0,
+            "keepa_calls": s.get("keepa_calls") or 0,
+            "asins_scanned": scanned,
+            "cache_skipped": s.get("cache_skipped") or 0,
+            "keepa_rejected": s.get("keepa_rejected") or 0,
+            "ai_rejected": s.get("ai_rejected") or 0,
+            "posted": posted,
+            "success_rate": round(posted / scanned * 100, 1) if scanned else 0.0,
+        })
+
+    n_enabled_groups = sum(1 for g in groups.values() if g["enabled_count"] > 0)
+    theoretical_share_today = round(daily_budget / n_enabled_groups, 1) if n_enabled_groups else 0
+
+    return jsonify({
+        "engine": get_method_engine_state(),
+        "budget": {
+            "daily_budget_requests": daily_budget,
+            "asins_per_call": 10,
+            "calls_today": calls_today,
+            "remaining_today": max(0, daily_budget - calls_today),
+            "pct_used": round(calls_today / daily_budget * 100, 1) if daily_budget else 0,
+            "theoretical_share_per_active_target": theoretical_share_today,
+        },
+        "targets": targets,
+    })
 
 
 # ==================== Admin endpoints ====================

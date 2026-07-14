@@ -11,25 +11,31 @@ except ImportError:
 
 class DiscordAlerts:
     """Send deal alerts to Discord."""
-    
+
     def __init__(self, webhook_url):
         self.webhook_url = webhook_url
         if not DiscordWebhook:
             logger.warning("[DISCORD] discord-webhook not installed")
 
-    def send(self, product):
-        """Send product alert to Discord."""
-        
-        if not self.webhook_url:
+    def send(self, product, webhook_url=None):
+        """Send product alert to Discord.
+
+        `webhook_url` optionally overrides self.webhook_url for this send only —
+        used to route a deal to a specific channel (e.g. the Method 1 / Method 2
+        comparison channels) without needing a separate DiscordAlerts instance.
+        """
+        target_url = webhook_url or self.webhook_url
+
+        if not target_url:
             logger.warning("[DISCORD] No webhook URL configured")
             return False
-        
+
         if not DiscordWebhook:
             logger.warning("[DISCORD] discord-webhook not available")
             return False
 
         try:
-            webhook = DiscordWebhook(url=self.webhook_url)
+            webhook = DiscordWebhook(url=target_url)
 
             embed = DiscordEmbed(
                 title=product.get("title", "Unknown")[:256],
@@ -92,7 +98,7 @@ class DiscordAlerts:
             )
 
             ai_val = product.get("ai_score")
-            ai_str = f"{float(ai_val):.1f}/10" if isinstance(ai_val, (int, float)) else "N/A"
+            ai_str = f"{float(ai_val):.0f}/100" if isinstance(ai_val, (int, float)) else "N/A"
             embed.add_embed_field(
                 name="⭐ AI Score",
                 value=ai_str,

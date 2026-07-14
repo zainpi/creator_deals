@@ -38,7 +38,7 @@ class DealScheduler:
             config.get("discord", {}).get("webhook_url", "")
         )
 
-        self.min_ai_score = config.get("ai", {}).get("minimum_score", 7)
+        self.min_ai_score = config.get("ai", {}).get("minimum_score", 50)
         self.basic_mode = bool(config.get("creators", {}).get("basic_mode", False))
         # How many items to enrich (AI scoring) in parallel per page
         try:

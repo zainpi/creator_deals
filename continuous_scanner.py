@@ -85,7 +85,7 @@ class ContinuousScanner:
                            "euro-off gate. Enable Keepa for category-scaled discount filtering.")
 
         self.ai = AIScorer(config)
-        self.min_ai_score = config.get("ai", {}).get("minimum_score", 7)
+        self.min_ai_score = config.get("ai", {}).get("minimum_score", 50)
         self.discord = DiscordAlerts(config.get("discord", {}).get("webhook_url", ""))
 
         # Cumulative counters surfaced to the dashboard.
@@ -298,7 +298,7 @@ class ContinuousScanner:
         seller_data = DealFilters.extract_seller(listing)
         title = DealFilters.extract_title(norm)
 
-        ai_score = 5.0
+        ai_score = 50.0
         ai_reason = ""
         try:
             if self.ai and self.ai.enabled and title:

@@ -13,10 +13,24 @@ affiliate_ids:
   NL: pulse046-21
   BE: pulse0dc-21
 
-# AI scoring
+# AI scoring — 0-100 scale (discount quality, popularity, brand, resale
+# potential, overall attractiveness). A deal needs >= minimum_score to be
+# posted to Discord.
 ai:
-  minimum_score: 3
+  minimum_score: 50
   enabled: true
+
+# Discord webhooks. `webhook_url` is the default/global feed used by
+# scheduler.py + continuous_scanner.py. `method_webhooks` are the two channels
+# for the Method 1 vs Method 2 comparison engine (method_scanner.py) — paste
+# your #method-uno / #method-dos webhook URLs below, or set them via the
+# DISCORD_WEBHOOK_METHOD1 / DISCORD_WEBHOOK_METHOD2 env vars instead (env vars
+# win if both are set — see config_loader.py).
+discord:
+  webhook_url: YOUR_WEBHOOK
+  method_webhooks:
+    method1: PASTE_METHOD_UNO_WEBHOOK_URL_HERE
+    method2: PASTE_METHOD_DOS_WEBHOOK_URL_HERE
 
 # Amazon search defaults
 amazon:
@@ -79,3 +93,15 @@ pricing:
 seller:
   allow_amazon_only: false
   min_feedback_percent: 90
+
+# Method 1 vs Method 2 comparison engine (method_scanner.py, runs in worker.py
+# alongside the scanner above — separate mode, does not replace it).
+# Categories/methods are switched on/off at runtime from the "Pick a Category"
+# panel in the dashboard (persisted in the method_nodes table); this section
+# only sets the engine's fixed parameters.
+method_test:
+  marketplace: DE                # browse node IDs are currently DE-only
+  max_price: 450                 # € sweep ceiling per node before wrapping to 0
+  keepa_drop_percent: 25         # flat threshold: reject unless price is >= this % below the Keepa 90-day avg
+  tick_seconds: 20                # delay between round-robin ticks
+  daily_budget_requests: 8640    # Creator API basic-plan TPD budget (10 ASINs/call); engine pauses once reached, resumes next day

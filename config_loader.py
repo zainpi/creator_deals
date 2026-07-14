@@ -34,6 +34,17 @@ def apply_env_overrides(cfg: dict) -> dict:
     if wh:
         cfg.setdefault("discord", {})["webhook_url"] = wh
 
+    # Per-method Discord channels (Method 1 = subcategory browse nodes,
+    # Method 2 = parent category browse node) for the A/B comparison engine.
+    wh1 = _env("DISCORD_WEBHOOK_METHOD1", "DISCORD_WEBHOOK_METHOD_UNO")
+    wh2 = _env("DISCORD_WEBHOOK_METHOD2", "DISCORD_WEBHOOK_METHOD_DOS")
+    if wh1 or wh2:
+        method_webhooks = cfg.setdefault("discord", {}).setdefault("method_webhooks", {})
+        if wh1:
+            method_webhooks["method1"] = wh1
+        if wh2:
+            method_webhooks["method2"] = wh2
+
     keepa_key = _env("KEEPA_API_KEY")
     if keepa_key:
         cfg.setdefault("keepa", {})["api_key"] = keepa_key

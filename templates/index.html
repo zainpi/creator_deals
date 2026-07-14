@@ -99,7 +99,7 @@
             </div>
             <div class="filter-group">
                 <label>Min AI Score</label>
-                <input id="f_min_ai_score" type="number" value="0" min="0" max="10" step="0.1">
+                <input id="f_min_ai_score" type="number" value="0" min="0" max="100" step="1">
             </div>
             <div class="filter-group">
                 <label>Min Seller Rating %</label>
@@ -175,7 +175,7 @@
                 </div>
                 <div class="filter-group">
                     <label>Min AI Score</label>
-                    <input id="test_min_ai_score" type="number" value="7" min="1" max="10" step="0.1">
+                    <input id="test_min_ai_score" type="number" value="50" min="0" max="100" step="1">
                 </div>
                 <div class="filter-group checkbox">
                     <input id="test_ai_enabled" type="checkbox" checked>
@@ -215,6 +215,22 @@
             <div class="test-controls-header">
                 <h3>Single category — flexible inputs, raw API response</h3>
                 <p style="margin:4px 0 0;color:#9aa;font-size:0.85em;">Every field is optional and editable. Nothing is hard-coded. Leave keywords empty to search by browse node only.</p>
+            </div>
+
+            <!-- Pick a Category -> autofill Search Index, or jump straight to Method 2 (parent node) -->
+            <div class="test-filter-row">
+                <div class="filter-group" style="flex:2;">
+                    <label title="Autofills Search Index below from the 26-category table">Pick a Category</label>
+                    <select id="cat_top_category" onchange="applyTopCategory()">
+                        <option value="">— choose a category —</option>
+                    </select>
+                </div>
+                <div class="filter-group" style="align-self:flex-end;">
+                    <button class="btn" id="cat-method2-btn" onclick="applyMethod2()" disabled
+                            title="Method 2: search the parent category node directly — clears Search Index/Keywords, sets Browse Node ID, min saving 0, FBA only ON">
+                        🅱️ Use Method 2 (parent node)
+                    </button>
+                </div>
             </div>
 
             <div class="test-filter-row">
@@ -408,6 +424,70 @@
         </div>
     </div>
 
+    <!-- ============ METHOD 1 vs METHOD 2 (LIVE A/B ENGINE) ============ -->
+    <div class="test-section" id="method-test-section">
+        <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleMethodPanel()" title="Pick a category, run Method 1 (subcategory nodes) and/or Method 2 (parent node) continuously, and compare results posted to their own Discord channels">
+            <span>🥊 Method 1 vs Method 2 (Live A/B Test)</span>
+            <span id="method-toggle-indicator" style="font-size:0.8em;">▾</span>
+        </h2>
+        <div id="method-controls" class="test-controls" style="display:none;">
+            <div class="test-controls-header">
+                <h3>Pick a Category → runs continuously in the background worker</h3>
+                <p style="margin:4px 0 0;color:#9aa;font-size:0.85em;">
+                    Method 1 searches a category's subcategory browse nodes; Method 2 searches just the parent
+                    category node. Both sweep €0→€450 in ~100-ASIN batches, skip cached/unchanged ASINs before
+                    spending a Keepa call, keep only items ≥25% below their Keepa 90-day average, AI-score the
+                    rest 0–100 (post if ≥50), and post survivors to the method's own Discord channel.
+                </p>
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:12px 0;">
+                <div id="method-engine-status" class="search-status" style="flex:1;min-width:260px;margin:0;">Loading engine status…</div>
+                <button class="btn btn-secondary" id="method-engine-toggle" onclick="toggleMethodEngine()">▶ Start</button>
+            </div>
+
+            <div class="stats-grid" id="method-budget-summary" style="margin-bottom:12px;">
+                <div class="stat-card"><div class="stat-label">Calls Today</div><div class="stat-value" id="method_calls_today">0</div></div>
+                <div class="stat-card"><div class="stat-label">Daily Budget</div><div class="stat-value" id="method_daily_budget">8640</div></div>
+                <div class="stat-card"><div class="stat-label">% Used</div><div class="stat-value" id="method_pct_used">0%</div></div>
+                <div class="stat-card" title="Even split of the daily budget across currently-enabled category/method targets"><div class="stat-label">Theoretical / Target</div><div class="stat-value" id="method_theoretical">0</div></div>
+            </div>
+
+            <h4 style="margin:16px 0 8px;">Categories</h4>
+            <div style="overflow-x:auto;">
+                <table class="batch-table" id="method-categories-table">
+                    <thead>
+                        <tr><th>Category</th><th>Method 1 (subcategory nodes)</th><th>Method 2 (parent node)</th></tr>
+                    </thead>
+                    <tbody id="method-categories-tbody">
+                        <tr><td colspan="3">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h4 style="margin:20px 0 8px;">Live Results by Target</h4>
+            <div style="overflow-x:auto;">
+                <table class="batch-table" id="method-targets-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th><th>Method</th><th>Nodes</th><th>Price Floor (avg)</th>
+                            <th>API Calls</th><th>Keepa Calls</th><th>Scanned</th><th>Cache Skip</th>
+                            <th>Keepa Rej.</th><th>AI Rej.</th><th>Posted</th><th>Success %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="method-targets-tbody">
+                        <tr><td colspan="12">No data yet — enable a category above and start the engine.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin:10px 0 0;color:#9aa;font-size:0.8em;">
+                Results also land in each method's feed (<code>__method1__</code> / <code>__method2__</code>) in
+                the database, and post live to Discord — configure the two webhook URLs under
+                <code>discord.method_webhooks</code> in config.yml.
+            </p>
+        </div>
+    </div>
+
     <!-- Results -->
     <div class="products-section">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
@@ -464,7 +544,7 @@
 
 </div>
 
-<script src="/static/app.js?v=21"></script>
+<script src="/static/app.js?v=22"></script>
 
 </body>
 </html>

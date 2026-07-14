@@ -40,7 +40,7 @@ function renderProducts(products, containerId = 'products') {
         const hasAvg90  = p.keepa_avg_90 !== null && p.keepa_avg_90 !== undefined && !isNaN(p.keepa_avg_90);
         const hasDrop   = p.keepa_drop_percent !== null && p.keepa_drop_percent !== undefined && !isNaN(p.keepa_drop_percent);
         const hasSavings = p.savings_percent !== null && p.savings_percent !== undefined && !isNaN(p.savings_percent);
-        const score     = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(1)}/10` : 'N/A';
+        const score     = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(0)}/100` : 'N/A';
         const seller    = p.seller_name || 'Unknown';
         const posted    = p.posted ? '✅' : '❌';
         const hasRating = p.seller_rating !== null && p.seller_rating !== undefined && !isNaN(p.seller_rating);
@@ -538,7 +538,7 @@ async function runTest() {
                                 ${item.keepa_drop !== null && item.keepa_drop !== undefined
                                     ? `<span class="metric">📉 ${item.keepa_drop.toFixed(1)}%</span>`
                                     : `<span class="metric">📉 N/A</span>`}
-                                <span class="metric">⭐ ${(item.ai_score || 5.0).toFixed(1)}/10</span>
+                                <span class="metric">⭐ ${(item.ai_score || 50.0).toFixed(0)}/100</span>
                             </div>
                         </div>
                     </div>
@@ -707,6 +707,54 @@ async function loadCategoryTable() {
     } catch (e) {
         console.error('loadCategoryTable failed:', e);
     }
+    await loadTopCategoryTable();
+}
+
+// ============= PICK A CATEGORY (Method 1 / Method 2 quick-fill) =============
+
+let TOP_CATEGORY_TABLE = [];
+
+async function loadTopCategoryTable() {
+    try {
+        const res = await fetch('/api/topcategories');
+        TOP_CATEGORY_TABLE = (await res.json()) || [];
+        const sel = document.getElementById('cat_top_category');
+        if (!sel) return;
+        TOP_CATEGORY_TABLE.forEach(t => {
+            const o = document.createElement('option');
+            o.value = t.searchIndex;
+            o.textContent = `${t.displayName} (${t.searchIndex})${t.parentBrowseNodeId ? '' : ' — no parent node yet'}`;
+            sel.appendChild(o);
+        });
+    } catch (e) {
+        console.error('loadTopCategoryTable failed:', e);
+    }
+}
+
+function applyTopCategory() {
+    const idx = document.getElementById('cat_top_category').value;
+    const btn = document.getElementById('cat-method2-btn');
+    const t = TOP_CATEGORY_TABLE.find(x => x.searchIndex === idx);
+    if (!idx || !t) {
+        if (btn) btn.disabled = true;
+        return;
+    }
+    document.getElementById('cat_search_index').value = t.searchIndex;
+    if (btn) btn.disabled = !t.parentBrowseNodeId;
+}
+
+function applyMethod2() {
+    const idx = document.getElementById('cat_top_category').value;
+    const t = TOP_CATEGORY_TABLE.find(x => x.searchIndex === idx);
+    if (!t || !t.parentBrowseNodeId) return;
+    // Method 2 per the board: only the parent browse node — no Search Index,
+    // no Keywords, no min saving, FBA on.
+    document.getElementById('cat_search_index').value = '';
+    document.getElementById('cat_keywords').value = '';
+    document.getElementById('cat_browse_node').value = t.parentBrowseNodeId;
+    document.getElementById('cat_min_saving').value = 0;
+    const fba = document.getElementById('cat_use_fba');
+    if (fba) fba.checked = true;
 }
 
 function loadCatPreset() {
@@ -1037,6 +1085,140 @@ function toggleBatchJson(id) {
     if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
 }
 
+// ============= METHOD 1 vs METHOD 2 (LIVE A/B ENGINE) =============
+
+let methodEngineEnabled = false;
+
+function toggleMethodPanel() {
+    const p = document.getElementById('method-controls');
+    const i = document.getElementById('method-toggle-indicator');
+    const hidden = p.style.display === 'none' || p.style.display === '';
+    p.style.display = hidden ? 'block' : 'none';
+    i.textContent = hidden ? '▴' : '▾';
+    if (hidden) {
+        loadMethodCategories();
+        refreshMethodStatus();
+    }
+}
+
+async function loadMethodCategories() {
+    const tbody = document.getElementById('method-categories-tbody');
+    try {
+        const res = await fetch('/api/method_test/categories');
+        const cats = (await res.json()) || [];
+        if (!cats.length) {
+            tbody.innerHTML = '<tr><td colspan="3">No categories seeded yet — start the worker process once to seed them.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = cats.map(c => {
+            const m1 = c.method1, m2 = c.method2;
+            const cell = (m, method) => m.available
+                ? `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                       <input type="checkbox" ${m.enabled ? 'checked' : ''}
+                              onchange="toggleMethodCategory('${_esc(c.searchIndex)}', ${method}, this.checked)">
+                       ${m.nodeCount} node${m.nodeCount === 1 ? '' : 's'}
+                   </label>`
+                : `<span style="color:#666;">no node data yet</span>`;
+            return `
+                <tr>
+                    <td>${_esc(c.displayName)} <span style="color:#9aa;">(${_esc(c.searchIndex)})</span></td>
+                    <td>${cell(m1, 1)}</td>
+                    <td>${cell(m2, 2)}</td>
+                </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('loadMethodCategories failed:', e);
+        tbody.innerHTML = '<tr><td colspan="3">Failed to load categories.</td></tr>';
+    }
+}
+
+async function toggleMethodCategory(searchIndex, method, enabled) {
+    try {
+        await fetch('/api/method_test/toggle', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ category: searchIndex, method, enabled }),
+        });
+        await refreshMethodStatus();
+    } catch (e) {
+        console.error('toggleMethodCategory failed:', e);
+    }
+}
+
+async function toggleMethodEngine() {
+    const action = methodEngineEnabled ? 'pause' : 'start';
+    try {
+        await fetch('/api/method_test/control', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ action }),
+        });
+        await refreshMethodStatus();
+    } catch (e) {
+        console.error('toggleMethodEngine failed:', e);
+    }
+}
+
+async function refreshMethodStatus() {
+    try {
+        const res = await fetch('/api/method_test/status');
+        const s = await res.json();
+        const engine = s.engine || {};
+        methodEngineEnabled = !!engine.enabled;
+
+        const toggle = document.getElementById('method-engine-toggle');
+        if (toggle) toggle.textContent = methodEngineEnabled ? '⏸ Pause' : '▶ Start';
+
+        const heartbeatAge = _ago(engine.last_heartbeat);
+        const live = engine.last_heartbeat &&
+            (Date.now() - new Date(engine.last_heartbeat + 'Z').getTime()) < 90000;
+        let txt;
+        if (!methodEngineEnabled) {
+            txt = '⏸ Engine paused.';
+        } else if (live) {
+            txt = `🟢 Running — ${engine.current_target || '…'} · last tick ${heartbeatAge}`;
+        } else {
+            txt = `⚪ Idle / worker not running (last heartbeat ${heartbeatAge}).`;
+        }
+        if (engine.last_error) txt += ` · ⚠️ ${engine.last_error}`;
+        const statusEl = document.getElementById('method-engine-status');
+        if (statusEl) statusEl.textContent = txt;
+
+        const b = s.budget || {};
+        document.getElementById('method_calls_today').textContent  = b.calls_today ?? 0;
+        document.getElementById('method_daily_budget').textContent = b.daily_budget_requests ?? 0;
+        document.getElementById('method_pct_used').textContent     = `${b.pct_used ?? 0}%`;
+        document.getElementById('method_theoretical').textContent  = b.theoretical_share_per_active_target ?? 0;
+
+        renderMethodTargets(s.targets || []);
+    } catch (e) {
+        console.error('refreshMethodStatus failed:', e);
+    }
+}
+
+function renderMethodTargets(targets) {
+    const tbody = document.getElementById('method-targets-tbody');
+    if (!targets.length) {
+        tbody.innerHTML = '<tr><td colspan="12">No data yet — enable a category above and start the engine.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = targets.map(t => `
+        <tr class="${t.enabled ? 'ok-row' : ''}">
+            <td>${_esc(t.category)}</td>
+            <td>Method ${t.method}</td>
+            <td>${t.enabled_node_count}/${t.node_count}</td>
+            <td>€${t.avg_price_floor}</td>
+            <td>${t.creators_api_calls}</td>
+            <td>${t.keepa_calls}</td>
+            <td>${t.asins_scanned}</td>
+            <td>${t.cache_skipped}</td>
+            <td>${t.keepa_rejected}</td>
+            <td>${t.ai_rejected}</td>
+            <td>${t.posted}</td>
+            <td>${t.success_rate}%</td>
+        </tr>`).join('');
+}
+
 // ============= INIT =============
 
 (async function initDashboard() {
@@ -1055,6 +1237,11 @@ function toggleBatchJson(id) {
     // Refresh products every 30s in case another tab ran a search
     setInterval(refreshProducts, 30000);
     setInterval(refreshStats,    15000);
+    // Method A/B panel polls only while its own section is expanded
+    setInterval(() => {
+        const p = document.getElementById('method-controls');
+        if (p && p.style.display === 'block') refreshMethodStatus();
+    }, 10000);
 })();
 
 // ============= EXPORTS =============
@@ -1075,4 +1262,9 @@ window.toggleBatchPanel = toggleBatchPanel;
 window.loadCatPreset   = loadCatPreset;
 window.runCatTest      = runCatTest;
 window.runBatchTest    = runBatchTest;
+window.toggleMethodPanel    = toggleMethodPanel;
+window.toggleMethodCategory = toggleMethodCategory;
+window.toggleMethodEngine   = toggleMethodEngine;
+window.applyTopCategory     = applyTopCategory;
+window.applyMethod2         = applyMethod2;
 window.toggleBatchJson = toggleBatchJson;

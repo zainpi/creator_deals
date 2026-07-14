@@ -583,5 +583,122 @@
     "priceNote": "50% - 50 euro",
     "minSavingPercent": 50,
     "intervalEuro": 50
+  },
+  {
+    "id": 66,
+    "searchIndex": "Electronics",
+    "keywords": "Auto- & Fahrzeugelektronik",
+    "browseNodeId": "1071738",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 67,
+    "searchIndex": "Electronics",
+    "keywords": "Computer & Zubehör",
+    "browseNodeId": "1626220031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 68,
+    "searchIndex": "Electronics",
+    "keywords": "eBook-Reader & -Zubehör",
+    "browseNodeId": "671885031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 69,
+    "searchIndex": "Electronics",
+    "keywords": "Fernseher & Heimkino",
+    "browseNodeId": "761254",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 70,
+    "searchIndex": "Electronics",
+    "keywords": "Festnetztelefone, VOIP & Zubehör",
+    "browseNodeId": "1384527031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 71,
+    "searchIndex": "Electronics",
+    "keywords": "Funkgeräte & Zubehör",
+    "browseNodeId": "16069771",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 72,
+    "searchIndex": "Electronics",
+    "keywords": "Garantien",
+    "browseNodeId": "3118141",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 73,
+    "searchIndex": "Electronics",
+    "keywords": "Handys & Zubehör",
+    "browseNodeId": "1384526031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 74,
+    "searchIndex": "Electronics",
+    "keywords": "Hifi & Audio",
+    "browseNodeId": "571760",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 75,
+    "searchIndex": "Electronics",
+    "keywords": "Kamera & Foto",
+    "browseNodeId": "571860",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 76,
+    "searchIndex": "Electronics",
+    "keywords": "Navigation, GPS & Zubehör",
+    "browseNodeId": "236861011",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 77,
+    "searchIndex": "Electronics",
+    "keywords": "Tragbare Geräte",
+    "browseNodeId": "571712",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 78,
+    "searchIndex": "Electronics",
+    "keywords": "Zubehör",
+    "browseNodeId": "569866",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
   }
 ]

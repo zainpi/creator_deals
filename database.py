@@ -27,6 +27,12 @@ DB_PATH = "data/discovered_asins.db"
 # Reserved user_id for the shared, continuously-scanned discovery feed.
 GLOBAL_FEED_USER_ID = "__global__"
 
+# Reserved user_ids for the Method 1 / Method 2 comparison engine's result
+# feeds (method_scanner.py) — lets the existing discovered_products table /
+# get_products_for_user() double as a viewable history of what each method
+# posted, without touching per-user search data.
+METHOD_FEED_USER_IDS = {1: "__method1__", 2: "__method2__"}
+
 
 def _connect():
     if IS_POSTGRES:
@@ -205,6 +211,76 @@ def init_db():
             PRIMARY KEY (marketplace, asin)
         )
     ''')
+
+    # ============== Method 1 vs Method 2 comparison engine (method_scanner.py) ==============
+
+    # Flattened round-robin universe: one row per browse node the engine can scan.
+    # Method 1 categories seed one row per subcategory (data/categories.json);
+    # Method 2 categories seed a single row using the parent browse node
+    # (data/topcategories.json). current_min_price is that node's price-sweep
+    # cursor (persists across restarts/ticks); enabled is the user's on/off toggle
+    # from the "Pick a Category" UI.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS method_nodes (
+            marketplace TEXT NOT NULL,
+            category TEXT NOT NULL,
+            method INTEGER NOT NULL,
+            browse_node_id TEXT NOT NULL,
+            label TEXT,
+            keywords TEXT,
+            enabled INTEGER DEFAULT 1,
+            current_min_price REAL DEFAULT 0,
+            updated_at TEXT,
+            PRIMARY KEY (marketplace, category, method, browse_node_id)
+        )
+    ''')
+
+    # Price-aware ASIN cache: "if ASIN in cache and price unchanged, skip" —
+    # checked BEFORE spending a Keepa call. Separate from scan_seen (which is a
+    # time-only cooldown for the older continuous_scanner engine).
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS method_asin_cache (
+            marketplace TEXT NOT NULL,
+            method INTEGER NOT NULL,
+            asin TEXT NOT NULL,
+            last_price REAL,
+            last_checked_at TEXT,
+            PRIMARY KEY (marketplace, method, asin)
+        )
+    ''')
+
+    # Per-day, per-category/method credit + outcome counters — powers the
+    # "Theoretical vs Actual credit consumption" and Keepa success-rate views.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS method_stats (
+            marketplace TEXT NOT NULL,
+            category TEXT NOT NULL,
+            method INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            creators_api_calls INTEGER DEFAULT 0,
+            keepa_calls INTEGER DEFAULT 0,
+            asins_scanned INTEGER DEFAULT 0,
+            cache_skipped INTEGER DEFAULT 0,
+            keepa_rejected INTEGER DEFAULT 0,
+            ai_rejected INTEGER DEFAULT 0,
+            posted INTEGER DEFAULT 0,
+            PRIMARY KEY (marketplace, category, method, date)
+        )
+    ''')
+
+    # Single-row engine on/off + round-robin pointer + heartbeat (mirrors scanner_state).
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS method_engine_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            enabled INTEGER DEFAULT 0,
+            running INTEGER DEFAULT 0,
+            rr_pointer INTEGER DEFAULT 0,
+            last_heartbeat TEXT,
+            current_target TEXT,
+            last_error TEXT
+        )
+    ''')
+    c.execute("INSERT INTO method_engine_state (id) VALUES (1) ON CONFLICT DO NOTHING")
 
     conn.commit()
     conn.close()
@@ -533,6 +609,182 @@ def mark_seen(marketplace, asin):
         conn.close()
 
 
+# ==================== Method comparison engine (method_scanner.py) ====================
+
+def seed_method_node(marketplace, category, method, browse_node_id, label=None, keywords=None, enabled=1):
+    """Insert a round-robin node if it doesn't exist yet. Idempotent — re-seeding
+    (e.g. on every app start) refreshes label/keywords but never resets an
+    existing node's enabled flag or its in-progress price cursor."""
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute(_q('''
+            INSERT INTO method_nodes
+                (marketplace, category, method, browse_node_id, label, keywords, enabled, current_min_price, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+            ON CONFLICT (marketplace, category, method, browse_node_id) DO UPDATE SET
+                label=EXCLUDED.label,
+                keywords=EXCLUDED.keywords
+        '''), (marketplace, category, int(method), str(browse_node_id), label, keywords,
+              int(enabled), datetime.utcnow().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_method_nodes(marketplace=None, enabled_only=False):
+    conn = _connect()
+    c = conn.cursor()
+    sql = "SELECT * FROM method_nodes"
+    clauses, params = [], []
+    if marketplace:
+        clauses.append("marketplace=?")
+        params.append(marketplace)
+    if enabled_only:
+        clauses.append("enabled=1")
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY category, method, browse_node_id"
+    c.execute(_q(sql), tuple(params))
+    columns = [d[0] for d in c.description]
+    rows = c.fetchall()
+    conn.close()
+    return [dict(zip(columns, row)) for row in rows]
+
+
+def set_method_nodes_enabled(marketplace, category, method, enabled):
+    """Bulk-toggle every node for a (marketplace, category, method) combo — this is
+    what the 'Method 1 / Method 2' switches in the UI flip per category."""
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute(
+            _q("UPDATE method_nodes SET enabled=?, updated_at=? WHERE marketplace=? AND category=? AND method=?"),
+            (int(enabled), datetime.utcnow().isoformat(), marketplace, category, int(method)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_method_node_price(marketplace, category, method, browse_node_id, current_min_price):
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute(_q('''
+            UPDATE method_nodes SET current_min_price=?, updated_at=?
+            WHERE marketplace=? AND category=? AND method=? AND browse_node_id=?
+        '''), (float(current_min_price), datetime.utcnow().isoformat(),
+              marketplace, category, int(method), str(browse_node_id)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_method_asin_cache_batch(marketplace, method, asins):
+    """Return {asin: last_price} for the given ASINs (only those already cached)."""
+    if not asins:
+        return {}
+    conn = _connect()
+    c = conn.cursor()
+    placeholders = ",".join("?" for _ in asins)
+    c.execute(
+        _q(f"SELECT asin, last_price FROM method_asin_cache "
+           f"WHERE marketplace=? AND method=? AND asin IN ({placeholders})"),
+        (marketplace, int(method), *asins),
+    )
+    rows = c.fetchall()
+    conn.close()
+    return {row[0]: row[1] for row in rows}
+
+
+def upsert_method_asin_cache_batch(marketplace, method, asin_price_pairs):
+    """asin_price_pairs: iterable of (asin, price)."""
+    pairs = [(a, p) for a, p in asin_price_pairs if a]
+    if not pairs:
+        return
+    conn = _connect()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    try:
+        for asin, price in pairs:
+            c.execute(_q('''
+                INSERT INTO method_asin_cache (marketplace, method, asin, last_price, last_checked_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (marketplace, method, asin) DO UPDATE SET
+                    last_price=EXCLUDED.last_price,
+                    last_checked_at=EXCLUDED.last_checked_at
+            '''), (marketplace, int(method), asin, price, now))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def bump_method_stats(marketplace, category, method, date=None, **increments):
+    """Add to today's counters for a (marketplace, category, method). `increments`
+    keys must be columns on method_stats (creators_api_calls, keepa_calls,
+    asins_scanned, cache_skipped, keepa_rejected, ai_rejected, posted)."""
+    if not increments:
+        return
+    date = date or datetime.utcnow().strftime("%Y-%m-%d")
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        cols = ", ".join(increments.keys())
+        vals_ph = ", ".join("?" for _ in increments)
+        updates = ", ".join(f"{k}=method_stats.{k}+EXCLUDED.{k}" for k in increments)
+        c.execute(_q(f'''
+            INSERT INTO method_stats (marketplace, category, method, date, {cols})
+            VALUES (?, ?, ?, ?, {vals_ph})
+            ON CONFLICT (marketplace, category, method, date) DO UPDATE SET
+                {updates}
+        '''), (marketplace, category, int(method), date, *increments.values()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_method_stats(date=None):
+    """Return today's (or `date`'s) per marketplace/category/method rows."""
+    date = date or datetime.utcnow().strftime("%Y-%m-%d")
+    conn = _connect()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM method_stats WHERE date=?"), (date,))
+    columns = [d[0] for d in c.description]
+    rows = c.fetchall()
+    conn.close()
+    return [dict(zip(columns, row)) for row in rows]
+
+
+def get_method_engine_state():
+    conn = _connect()
+    c = conn.cursor()
+    c.execute("SELECT * FROM method_engine_state WHERE id=1")
+    row = c.fetchone()
+    columns = [d[0] for d in c.description]
+    conn.close()
+    if not row:
+        return {}
+    return dict(zip(columns, row))
+
+
+def update_method_engine_state(**fields):
+    """Field names are caller-controlled (enabled, running, rr_pointer,
+    last_heartbeat, current_target, last_error) — not user input."""
+    if not fields:
+        return
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO method_engine_state (id) VALUES (1) ON CONFLICT DO NOTHING")
+        assignments = ", ".join(f"{k}=?" for k in fields)
+        c.execute(_q(f"UPDATE method_engine_state SET {assignments} WHERE id=1"),
+                  tuple(fields.values()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def reset_db():
     """Drop and recreate all tables (schema reset)."""
     conn = _connect()
@@ -545,6 +797,10 @@ def reset_db():
         c.execute("DROP TABLE IF EXISTS scanner_state")
         c.execute("DROP TABLE IF EXISTS category_baselines")
         c.execute("DROP TABLE IF EXISTS scan_seen")
+        c.execute("DROP TABLE IF EXISTS method_nodes")
+        c.execute("DROP TABLE IF EXISTS method_asin_cache")
+        c.execute("DROP TABLE IF EXISTS method_stats")
+        c.execute("DROP TABLE IF EXISTS method_engine_state")
         conn.commit()
     finally:
         conn.close()
