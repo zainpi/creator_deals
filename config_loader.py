@@ -34,16 +34,30 @@ def apply_env_overrides(cfg: dict) -> dict:
     if wh:
         cfg.setdefault("discord", {})["webhook_url"] = wh
 
-    # Per-method Discord channels (Method 1 = subcategory browse nodes,
-    # Method 2 = parent category browse node) for the A/B comparison engine.
-    wh1 = _env("DISCORD_WEBHOOK_METHOD1", "DISCORD_WEBHOOK_METHOD_UNO")
-    wh2 = _env("DISCORD_WEBHOOK_METHOD2", "DISCORD_WEBHOOK_METHOD_DOS")
-    if wh1 or wh2:
-        method_webhooks = cfg.setdefault("discord", {}).setdefault("method_webhooks", {})
-        if wh1:
-            method_webhooks["method1"] = wh1
-        if wh2:
-            method_webhooks["method2"] = wh2
+    # Per-method, per-tier Discord channels for the A/B comparison engine
+    # (Method 1 = subcategory browse nodes, Method 2 = parent category browse
+    # node). Deals route by Keepa drop %: tier90 / tier70 / tier50 / rest,
+    # with Keepa+AI rejects going to trash.
+    _tier_env = {
+        "tier90": "90",
+        "tier70": "70",
+        "tier50": "50",
+        "rest": "REST",
+        "trash": "TRASH",
+    }
+    for method_key, num, alias in (("method1", "1", "UNO"), ("method2", "2", "DOS")):
+        for tier, suffix in _tier_env.items():
+            v = _env(
+                f"DISCORD_WEBHOOK_METHOD{num}_{suffix}",
+                f"DISCORD_WEBHOOK_METHOD_{alias}_{suffix}",
+            )
+            if v:
+                mw = cfg.setdefault("discord", {}).setdefault("method_webhooks", {})
+                entry = mw.get(method_key)
+                if not isinstance(entry, dict):
+                    entry = {}
+                    mw[method_key] = entry
+                entry[tier] = v
 
     keepa_key = _env("KEEPA_API_KEY")
     if keepa_key:

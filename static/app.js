@@ -1190,33 +1190,40 @@ async function refreshMethodStatus() {
         document.getElementById('method_pct_used').textContent     = `${b.pct_used ?? 0}%`;
         document.getElementById('method_theoretical').textContent  = b.theoretical_share_per_active_target ?? 0;
 
-        renderMethodTargets(s.targets || []);
+        await refreshMethodItems();
     } catch (e) {
         console.error('refreshMethodStatus failed:', e);
     }
 }
 
-function renderMethodTargets(targets) {
-    const tbody = document.getElementById('method-targets-tbody');
-    if (!targets.length) {
-        tbody.innerHTML = '<tr><td colspan="12">No data yet — enable a category above and start the engine.</td></tr>';
+async function refreshMethodItems() {
+    const res = await fetch('/api/method_test/items');
+    if (!res.ok) throw new Error(`Unable to load A/B items (${res.status})`);
+    const data = await res.json();
+    renderMethodItems('method1', data.method1 || [], 'No Method 1 items yet.');
+    renderMethodItems('method2', data.method2 || [], 'No Method 2 items yet.');
+    renderMethodItems('duplicates', data.duplicates || [], 'No duplicate items yet.');
+}
+
+function renderMethodItems(column, items, emptyText) {
+    const list = document.getElementById(`${column}-items`);
+    const count = document.getElementById(`${column}-count`);
+    count.textContent = items.length;
+    if (!items.length) {
+        list.innerHTML = `<p class="method-empty">${_esc(emptyText)}</p>`;
         return;
     }
-    tbody.innerHTML = targets.map(t => `
-        <tr class="${t.enabled ? 'ok-row' : ''}">
-            <td>${_esc(t.category)}</td>
-            <td>Method ${t.method}</td>
-            <td>${t.enabled_node_count}/${t.node_count}</td>
-            <td>€${t.avg_price_floor}</td>
-            <td>${t.creators_api_calls}</td>
-            <td>${t.keepa_calls}</td>
-            <td>${t.asins_scanned}</td>
-            <td>${t.cache_skipped}</td>
-            <td>${t.keepa_rejected}</td>
-            <td>${t.ai_rejected}</td>
-            <td>${t.posted}</td>
-            <td>${t.success_rate}%</td>
-        </tr>`).join('');
+    list.innerHTML = items.map(item => {
+        const url = item.url || `https://www.amazon.de/dp/${encodeURIComponent(item.asin || '')}`;
+        const price = Number(item.price);
+        return `<a class="method-item" href="${_esc(url)}" target="_blank" rel="noopener noreferrer">
+            ${item.image ? `<img src="${_esc(item.image)}" alt="">` : '<span class="method-item-image" aria-hidden="true">📦</span>'}
+            <span class="method-item-copy">
+                <strong>${_esc(item.title || item.asin || 'Untitled item')}</strong>
+                <small>${_esc(item.asin || '')}${Number.isFinite(price) ? ` · €${price.toFixed(2)}` : ''}</small>
+            </span>
+        </a>`;
+    }).join('');
 }
 
 // ============= INIT =============

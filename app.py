@@ -659,6 +659,28 @@ def api_method_test_categories():
     return jsonify(out)
 
 
+@app.route("/api/method_test/items")
+def api_method_test_items():
+    """Return the two method feeds plus their ASIN intersection for the A/B UI."""
+    method1 = get_products_for_user(METHOD_FEED_USER_IDS[1])
+    method2 = get_products_for_user(METHOD_FEED_USER_IDS[2])
+
+    method2_by_asin = {item.get("asin"): item for item in method2 if item.get("asin")}
+    duplicates = []
+    for item in method1:
+        asin = item.get("asin")
+        if asin and asin in method2_by_asin:
+            duplicate = dict(item)
+            duplicate["method2_last_seen"] = method2_by_asin[asin].get("last_seen")
+            duplicates.append(duplicate)
+
+    return jsonify({
+        "method1": method1,
+        "method2": method2,
+        "duplicates": duplicates,
+    })
+
+
 @app.route("/api/method_test/toggle", methods=["POST"])
 def api_method_test_toggle():
     """Switch a (category, method) on/off in the round robin."""

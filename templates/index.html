@@ -465,26 +465,21 @@
                 </table>
             </div>
 
-            <h4 style="margin:20px 0 8px;">Live Results by Target</h4>
-            <div style="overflow-x:auto;">
-                <table class="batch-table" id="method-targets-table">
-                    <thead>
-                        <tr>
-                            <th>Category</th><th>Method</th><th>Nodes</th><th>Price Floor (avg)</th>
-                            <th>API Calls</th><th>Keepa Calls</th><th>Scanned</th><th>Cache Skip</th>
-                            <th>Keepa Rej.</th><th>AI Rej.</th><th>Posted</th><th>Success %</th>
-                        </tr>
-                    </thead>
-                    <tbody id="method-targets-tbody">
-                        <tr><td colspan="12">No data yet — enable a category above and start the engine.</td></tr>
-                    </tbody>
-                </table>
+            <h4 style="margin:20px 0 8px;">Items</h4>
+            <div class="method-results-grid" aria-live="polite">
+                <section class="method-results-column">
+                    <h5>Items Method 1 <span id="method1-count" class="method-count">0</span></h5>
+                    <div id="method1-items" class="method-item-list"><p class="method-empty">No items yet.</p></div>
+                </section>
+                <section class="method-results-column">
+                    <h5>Items Method 2 <span id="method2-count" class="method-count">0</span></h5>
+                    <div id="method2-items" class="method-item-list"><p class="method-empty">No items yet.</p></div>
+                </section>
+                <section class="method-results-column method-results-duplicates">
+                    <h5>Duplicate Items <span id="duplicates-count" class="method-count">0</span></h5>
+                    <div id="duplicates-items" class="method-item-list"><p class="method-empty">No duplicates yet.</p></div>
+                </section>
             </div>
-            <p style="margin:10px 0 0;color:#9aa;font-size:0.8em;">
-                Results also land in each method's feed (<code>__method1__</code> / <code>__method2__</code>) in
-                the database, and post live to Discord — configure the two webhook URLs under
-                <code>discord.method_webhooks</code> in config.yml.
-            </p>
         </div>
     </div>
 

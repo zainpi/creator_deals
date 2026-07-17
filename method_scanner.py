@@ -8,9 +8,10 @@ Method 1 = search using a category's SUBCATEGORY browse nodes.
 Method 2 = search using just the top-level category's PARENT browse node.
 Both are browse-node-only searches (no keywords, no searchIndex filter) so the
 comparison isolates the one variable that differs between them: node
-granularity. Results are posted to separate Discord channels
-(discord.method_webhooks.method1 / method2) so the two can be judged head to
-head.
+granularity. Results are posted to separate per-method Discord channels
+(discord.method_webhooks.method1 / method2), tiered by Keepa 90-day drop %
+(tier90 / tier70 / tier50 / rest), with Keepa+AI rejects going to each
+method's trash channel, so the two can be judged head to head.
 
 Per node (one row in the `method_nodes` table), one tick does:
   1. Creators API search across the node's current €min_price -> max_price
@@ -109,11 +110,41 @@ class MethodScanner:
         self.discord = DiscordAlerts(discord_cfg.get("webhook_url", ""))
         method_webhooks = discord_cfg.get("method_webhooks", {}) or {}
         self.webhook_by_method = {
-            1: method_webhooks.get("method1", ""),
-            2: method_webhooks.get("method2", ""),
+            1: self._normalize_webhooks(method_webhooks.get("method1")),
+            2: self._normalize_webhooks(method_webhooks.get("method2")),
         }
 
         self._seed_nodes()
+
+    @staticmethod
+    def _normalize_webhooks(entry):
+        """Return {tier90, tier70, tier50, rest, trash} -> url. Accepts either
+        the tiered dict from config.yml or a legacy single-URL string (which
+        then feeds every tier except trash)."""
+        tiers = {"tier90": "", "tier70": "", "tier50": "", "rest": "", "trash": ""}
+        if isinstance(entry, dict):
+            for k in tiers:
+                url = str(entry.get(k) or "")
+                tiers[k] = url if url.startswith("http") else ""
+        elif isinstance(entry, str) and entry.startswith("http"):
+            for k in ("tier90", "tier70", "tier50", "rest"):
+                tiers[k] = entry
+        return tiers
+
+    @staticmethod
+    def _tier_for_drop(drop):
+        """Pick the score-tier channel from the Keepa 90-day drop percent."""
+        try:
+            d = float(drop)
+        except (TypeError, ValueError):
+            return "rest"
+        if d >= 90:
+            return "tier90"
+        if d >= 70:
+            return "tier70"
+        if d >= 50:
+            return "tier50"
+        return "rest"
 
     # ------------------------------------------------------------------ seeding
 
@@ -316,10 +347,15 @@ class MethodScanner:
             avg90 = avg90_map.get(asin)
             if not avg90 or avg90 <= 0:
                 rejected += 1
+                self._send_trash(method, it, asin, price, "No Keepa 90d data")
                 continue
             drop = (float(avg90) - price) / float(avg90) * 100
             if drop < self.keepa_drop_percent:
                 rejected += 1
+                self._send_trash(
+                    method, it, asin, price,
+                    f"Keepa drop {drop:.0f}% < {self.keepa_drop_percent:.0f}% threshold",
+                )
                 continue
             it["_keepa_avg90"] = round(float(avg90), 2)
             it["_keepa_drop"] = round(drop, 1)
@@ -329,8 +365,26 @@ class MethodScanner:
             bump_method_stats(marketplace, category, method, keepa_rejected=rejected)
         return survivors
 
+    def _send_trash(self, method, it, asin, price, reason):
+        """Post a Keepa/AI reject to the method's trash channel (if wired)."""
+        trash_url = (self.webhook_by_method.get(method) or {}).get("trash", "")
+        if not trash_url:
+            return
+        try:
+            self.discord.send_trash(
+                {
+                    "asin": asin,
+                    "title": DealFilters.extract_title(it) or "",
+                    "current_price": price,
+                    "reject_reason": reason,
+                },
+                webhook_url=trash_url,
+            )
+        except Exception as e:
+            logger.warning(f"[METHOD] Trash Discord error for {asin}: {e}")
+
     def _score_and_post(self, marketplace, category, method, survivors):
-        webhook_url = self.webhook_by_method.get(method, "")
+        webhooks = self.webhook_by_method.get(method) or {}
         feed_user_id = METHOD_FEED_USER_IDS.get(method)
 
         ai_rejected = 0
@@ -346,9 +400,17 @@ class MethodScanner:
 
             if score < self.min_ai_score:
                 ai_rejected += 1
+                self._send_trash(
+                    method, it, asin, price,
+                    f"AI score {score:.0f} < {self.min_ai_score:.0f} minimum",
+                )
                 continue
 
             product = self._build_product(it, asin, price, category, marketplace, method, score)
+
+            # Route by Keepa 90-day drop %: >=90 / >=70 / >=50 / rest.
+            tier = self._tier_for_drop(it.get("_keepa_drop"))
+            webhook_url = webhooks.get(tier, "") or webhooks.get("rest", "")
 
             sent = False
             try:

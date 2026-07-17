@@ -137,3 +137,42 @@ class DiscordAlerts:
         except Exception as e:
             logger.error(f"[DISCORD] Send failed: {e}")
             return False
+
+    def send_trash(self, product, webhook_url):
+        """Compact reject alert for the trash-method-* audit channels: title,
+        ASIN, price, and why the deal was filtered out."""
+        if not webhook_url or not DiscordWebhook:
+            return False
+
+        try:
+            webhook = DiscordWebhook(url=webhook_url, rate_limit_retry=True)
+
+            embed = DiscordEmbed(
+                title=product.get("title", "Unknown")[:256],
+                color="99aab5"
+            )
+            embed.add_embed_field(
+                name="🔗 ASIN",
+                value=product.get("asin", "N/A"),
+                inline=True
+            )
+            price_val = product.get("current_price")
+            price_str = f"€{price_val:.2f}" if isinstance(price_val, (int, float)) else "N/A"
+            embed.add_embed_field(
+                name="💶 Price",
+                value=price_str,
+                inline=True
+            )
+            embed.add_embed_field(
+                name="🗑️ Rejected",
+                value=product.get("reject_reason", "Unknown"),
+                inline=False
+            )
+
+            webhook.add_embed(embed)
+            webhook.execute()
+            return True
+
+        except Exception as e:
+            logger.error(f"[DISCORD] Trash send failed: {e}")
+            return False
