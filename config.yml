@@ -120,5 +120,6 @@ method_test:
   marketplace: DE                # browse node IDs are currently DE-only
   max_price: 450                 # € sweep ceiling per node before wrapping to 0
   keepa_drop_percent: 30         # flat threshold: reject unless price is >= this % below the Keepa avg (90d, or 30d fallback)
+  min_drop_currency: 30          # reject unless the Keepa average is at least €30 above the current price
   tick_seconds: 110              # delay between round-robin ticks; 86400/110 ≈ 785 ticks × 10 pages max ≈ 7850 calls/day, keeps worst case ~9% under the 8640 budget
   daily_budget_requests: 8640    # Creator API basic-plan TPD budget (10 ASINs/call); engine pauses once reached, resumes next day

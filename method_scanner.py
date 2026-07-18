@@ -21,8 +21,9 @@ Per node (one row in the `method_nodes` table), one tick does:
      wrapping back to €0 once the ceiling is reached or a window is empty.
   3. Price-aware ASIN cache check: skip anything already cached at the same
      price, BEFORE spending a Keepa call on it.
-  4. Keepa validation: reject unless the price is >= keepa_drop_percent (25%
-     by default) below the Keepa 90-day average.
+  4. Keepa validation: reject unless the price is both >= keepa_drop_percent
+     below the Keepa 90-day average (falling back to 30 days), and at least
+     min_drop_currency below that average.
   5. AI scoring 0-100: reject under ai.minimum_score (50 by default).
   6. Post survivors to the method-specific Discord channel.
 Then the round robin advances to the next enabled node.
@@ -85,7 +86,8 @@ class MethodScanner:
 
         self.marketplace = str(mt.get("marketplace", "DE")).upper()
         self.max_price = float(mt.get("max_price", 450))
-        self.keepa_drop_percent = float(mt.get("keepa_drop_percent", 25))
+        self.keepa_drop_percent = float(mt.get("keepa_drop_percent", 30))
+        self.min_drop_currency = float(mt.get("min_drop_currency", 30))
         self.daily_budget_requests = int(mt.get("daily_budget_requests", 8640))
         self.tick_seconds = max(1, int(mt.get("tick_seconds", 20)))
 
@@ -101,7 +103,8 @@ class MethodScanner:
         if not self.keepa:
             logger.warning("[METHOD] Keepa is OFF — nodes will still sweep price "
                            f"ranges (for stats) but nothing can pass the "
-                           f"{self.keepa_drop_percent:.0f}% gate without Keepa configured.")
+                           f"{self.keepa_drop_percent:.0f}% / €{self.min_drop_currency:.2f} "
+                           "gates without Keepa configured.")
 
         self.ai = AIScorer(config)
         self.min_ai_score = float(config.get("ai", {}).get("minimum_score", 50))
@@ -332,7 +335,7 @@ class MethodScanner:
         upsert_method_asin_cache_batch(marketplace, method, [(a, p) for _, a, p in to_process])
         bump_method_stats(marketplace, category, method, asins_scanned=len(to_process))
 
-        # ---- Keepa: reject unless >= keepa_drop_percent below the 90-day avg ----
+        # ---- Keepa: 90-day avg (30-day fallback), percentage and currency gates ----
         if not self.keepa:
             return []
 
@@ -353,12 +356,22 @@ class MethodScanner:
                 self._send_trash(method, it, asin, price,
                                  "No Keepa data (90d or 30d)", marketplace)
                 continue
-            drop = (float(avg) - price) / float(avg) * 100
+            currency_drop = float(avg) - price
+            drop = currency_drop / float(avg) * 100
             if drop < self.keepa_drop_percent:
                 rejected += 1
                 self._send_trash(
                     method, it, asin, price,
                     f"Keepa drop {drop:.0f}% ({window}d) < {self.keepa_drop_percent:.0f}% threshold",
+                    marketplace,
+                )
+                continue
+            if currency_drop < self.min_drop_currency:
+                rejected += 1
+                self._send_trash(
+                    method, it, asin, price,
+                    f"Keepa drop €{currency_drop:.2f} ({window}d) < "
+                    f"€{self.min_drop_currency:.2f} minimum",
                     marketplace,
                 )
                 continue
@@ -381,6 +394,7 @@ class MethodScanner:
                 {
                     "asin": asin,
                     "title": DealFilters.extract_title(it) or "",
+                    "image": DealFilters.extract_image(it),
                     "current_price": price,
                     "reject_reason": reason,
                     "marketplace": marketplace or self.marketplace,

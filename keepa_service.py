@@ -165,8 +165,11 @@ class KeepaService:
         (None, None) when neither window has data.
         """
         stats = product.get("stats") or {}
-        val = (KeepaService._stats_avg(stats, "avg", price_type)
-               or KeepaService._stats_avg(stats, "avg90", price_type))
+        # Prefer the explicit 90-day statistic. `avg` is retained as a
+        # compatibility fallback for Keepa responses that expose only the
+        # query-window average (we query with stats=90).
+        val = (KeepaService._stats_avg(stats, "avg90", price_type)
+               or KeepaService._stats_avg(stats, "avg", price_type))
         if val is not None:
             return val, 90
         val = KeepaService._stats_avg(stats, "avg30", price_type)

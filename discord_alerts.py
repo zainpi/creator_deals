@@ -143,7 +143,7 @@ class DiscordAlerts:
 
     def send_trash(self, product, webhook_url):
         """Compact reject alert for the trash-method-* audit channels: title,
-        ASIN, price, and why the deal was filtered out."""
+        image, ASIN, price, and why the deal was filtered out."""
         if not webhook_url or not DiscordWebhook:
             return False
 
@@ -178,6 +178,10 @@ class DiscordAlerts:
                 value=product.get("reject_reason", "Unknown"),
                 inline=False
             )
+
+            image = product.get("image")
+            if image:
+                embed.set_thumbnail(url=image)
 
             webhook.add_embed(embed)
             webhook.execute()
