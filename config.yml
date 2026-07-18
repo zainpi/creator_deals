@@ -22,11 +22,12 @@ ai:
 
 # Discord webhooks. `webhook_url` is the default/global feed used by
 # scheduler.py + continuous_scanner.py. `method_webhooks` route the Method 1
-# vs Method 2 comparison engine (method_scanner.py) by Keepa 90-day drop %:
+# vs Method 2 comparison engine (method_scanner.py) by Keepa drop % (90d, or
+# 30d fallback when no 90d data):
 #   drop >= 90%  -> tier90   (#method-uno-90 / #method-dos-90)
 #   drop >= 70%  -> tier70   (#method-uno-70 / #method-dos-70)
 #   drop >= 50%  -> tier50   (#method-uno-50 / #method-dos-50)
-#   otherwise    -> rest     (#method-uno-rest / #method-dos-rest)
+#   drop < 50%   -> trash    (below the lowest % tier; `rest` channels unused)
 #   Keepa/AI rejects -> trash (#trash-method-1 / #trash-method-2)
 # Paste each channel's webhook URL below (channel settings -> Integrations ->
 # Webhooks), or set env vars DISCORD_WEBHOOK_METHOD{1,2}_{90,70,50,REST,TRASH}
@@ -115,8 +116,9 @@ seller:
 # panel in the dashboard (persisted in the method_nodes table); this section
 # only sets the engine's fixed parameters.
 method_test:
+  auto_start: true               # start the engine enabled on worker boot (runs continuously; dashboard can still pause it)
   marketplace: DE                # browse node IDs are currently DE-only
   max_price: 450                 # € sweep ceiling per node before wrapping to 0
-  keepa_drop_percent: 25         # flat threshold: reject unless price is >= this % below the Keepa 90-day avg
-  tick_seconds: 20                # delay between round-robin ticks
+  keepa_drop_percent: 30         # flat threshold: reject unless price is >= this % below the Keepa avg (90d, or 30d fallback)
+  tick_seconds: 110              # delay between round-robin ticks; 86400/110 ≈ 785 ticks × 10 pages max ≈ 7850 calls/day, keeps worst case ~9% under the 8640 budget
   daily_budget_requests: 8640    # Creator API basic-plan TPD budget (10 ASINs/call); engine pauses once reached, resumes next day

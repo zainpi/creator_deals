@@ -37,6 +37,9 @@ class DiscordAlerts:
         try:
             webhook = DiscordWebhook(url=target_url)
 
+            # Which Keepa window the avg/drop came from (90d, or 30d fallback)
+            window = product.get("keepa_window") or 90
+
             embed = DiscordEmbed(
                 title=product.get("title", "Unknown")[:256],
                 color="03b2f8"
@@ -67,16 +70,16 @@ class DiscordAlerts:
             drop_val = product.get("keepa_drop_percent")
             drop_str = f"{float(drop_val):.0f}%" if isinstance(drop_val, (int, float)) else "N/A"
             embed.add_embed_field(
-                name="📉 90d Drop",
+                name=f"📉 {window}d Drop",
                 value=drop_str,
                 inline=True
             )
 
-            # Keepa 90d average price
+            # Keepa average price (90d, or 30d when no 90d data existed)
             avg90_val = product.get("keepa_avg_90")
             avg90_str = f"€{float(avg90_val):.2f}" if isinstance(avg90_val, (int, float)) else "N/A"
             embed.add_embed_field(
-                name="📈 90d Avg",
+                name=f"📈 {window}d Avg",
                 value=avg90_str,
                 inline=True
             )
@@ -151,6 +154,13 @@ class DiscordAlerts:
                 title=product.get("title", "Unknown")[:256],
                 color="99aab5"
             )
+            # Make the title a clickable Amazon product link
+            asin = product.get("asin")
+            if asin:
+                tld_map = {"DE": "de", "GB": "co.uk", "UK": "co.uk",
+                           "FR": "fr", "IT": "it", "ES": "es"}
+                mk = str(product.get("marketplace", "DE")).upper()
+                embed.set_url(f"https://www.amazon.{tld_map.get(mk, 'de')}/dp/{asin}")
             embed.add_embed_field(
                 name="🔗 ASIN",
                 value=product.get("asin", "N/A"),

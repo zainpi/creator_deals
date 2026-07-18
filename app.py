@@ -699,9 +699,18 @@ def api_method_test_toggle():
 def api_method_test_control():
     action = (request.json or {}).get("action", "")
     if action == "start" or action == "resume":
-        update_method_engine_state(enabled=1)
+        state = get_method_engine_state()
+        # Stamp the uptime timer only on the OFF -> ON transition, so a
+        # redundant 'resume' while already running doesn't reset it.
+        if state.get("enabled"):
+            update_method_engine_state(enabled=1)
+        else:
+            update_method_engine_state(
+                enabled=1,
+                started_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            )
     elif action in ("pause", "stop"):
-        update_method_engine_state(enabled=0)
+        update_method_engine_state(enabled=0, started_at=None)
     else:
         return jsonify({"success": False, "error": "action must be 'start'/'resume' or 'pause'/'stop'"}), 400
     return jsonify({"success": True, "state": get_method_engine_state()})
@@ -756,8 +765,17 @@ def api_method_test_status():
     n_enabled_groups = sum(1 for g in groups.values() if g["enabled_count"] > 0)
     theoretical_share_today = round(daily_budget / n_enabled_groups, 1) if n_enabled_groups else 0
 
+    engine = get_method_engine_state()
+    engine["uptime_seconds"] = None
+    if engine.get("enabled") and engine.get("started_at"):
+        try:
+            started = datetime.fromisoformat(str(engine["started_at"]))
+            engine["uptime_seconds"] = max(0, int((datetime.utcnow() - started).total_seconds()))
+        except (ValueError, TypeError):
+            pass
+
     return jsonify({
-        "engine": get_method_engine_state(),
+        "engine": engine,
         "budget": {
             "daily_budget_requests": daily_budget,
             "asins_per_call": 10,

@@ -1088,6 +1088,28 @@ function toggleBatchJson(id) {
 // ============= METHOD 1 vs METHOD 2 (LIVE A/B ENGINE) =============
 
 let methodEngineEnabled = false;
+let methodEngineStartedAtMs = null;  // client-side anchor for the uptime timer
+
+function _fmtDuration(totalSec) {
+    const s = Math.max(0, Math.floor(totalSec));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d) return `${d}d ${h}h ${m}m`;
+    if (h) return `${h}h ${m}m ${String(sec).padStart(2, '0')}s`;
+    return `${m}m ${String(sec).padStart(2, '0')}s`;
+}
+
+function renderMethodUptime() {
+    const el = document.getElementById('method-engine-uptime');
+    if (!el) return;
+    if (methodEngineStartedAtMs == null) {
+        el.textContent = '⏱ —';
+        return;
+    }
+    el.textContent = `⏱ ${_fmtDuration((Date.now() - methodEngineStartedAtMs) / 1000)}`;
+}
 
 function toggleMethodPanel() {
     const p = document.getElementById('method-controls');
@@ -1165,6 +1187,12 @@ async function refreshMethodStatus() {
         const s = await res.json();
         const engine = s.engine || {};
         methodEngineEnabled = !!engine.enabled;
+
+        // Anchor the ticking uptime timer to the server-computed value.
+        methodEngineStartedAtMs = (methodEngineEnabled && engine.uptime_seconds != null)
+            ? Date.now() - engine.uptime_seconds * 1000
+            : null;
+        renderMethodUptime();
 
         const toggle = document.getElementById('method-engine-toggle');
         if (toggle) toggle.textContent = methodEngineEnabled ? '⏸ Pause' : '▶ Start';
@@ -1249,6 +1277,8 @@ function renderMethodItems(column, items, emptyText) {
         const p = document.getElementById('method-controls');
         if (p && p.style.display === 'block') refreshMethodStatus();
     }, 10000);
+    // Tick the A/B engine uptime timer every second (cheap, no network)
+    setInterval(renderMethodUptime, 1000);
 })();
 
 // ============= EXPORTS =============

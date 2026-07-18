@@ -277,10 +277,16 @@ def init_db():
             rr_pointer INTEGER DEFAULT 0,
             last_heartbeat TEXT,
             current_target TEXT,
-            last_error TEXT
+            last_error TEXT,
+            started_at TEXT
         )
     ''')
     c.execute("INSERT INTO method_engine_state (id) VALUES (1) ON CONFLICT DO NOTHING")
+
+    # Migration: add started_at (engine uptime timer) to pre-existing DBs.
+    c.execute("PRAGMA table_info('method_engine_state')")
+    if "started_at" not in {row[1] for row in c.fetchall()}:
+        c.execute("ALTER TABLE method_engine_state ADD COLUMN started_at TEXT")
 
     conn.commit()
     conn.close()

@@ -17,7 +17,7 @@ import logging
 import threading
 
 from config_loader import load_config
-from database import init_db
+from database import init_db, update_method_engine_state
 from continuous_scanner import ScanLoop
 from method_scanner import MethodScanLoop
 
@@ -35,6 +35,15 @@ def main():
         logger.info("[WORKER] Database ready")
     except Exception as e:
         logger.error(f"[WORKER] Database init error: {e}")
+
+    # Auto-start the method engine so it runs continuously from boot
+    # (method_test.auto_start in config.yml; the dashboard can still pause it).
+    if (config.get("method_test", {}) or {}).get("auto_start"):
+        try:
+            update_method_engine_state(enabled=1)
+            logger.info("[WORKER] Method engine auto-started (method_test.auto_start)")
+        except Exception as e:
+            logger.error(f"[WORKER] Could not auto-start method engine: {e}")
 
     try:
         method_thread = threading.Thread(

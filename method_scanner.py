@@ -100,8 +100,8 @@ class MethodScanner:
                 logger.error(f"[METHOD] Keepa init failed: {e}")
         if not self.keepa:
             logger.warning("[METHOD] Keepa is OFF — nodes will still sweep price "
-                           "ranges (for stats) but nothing can pass the 25% gate "
-                           "without Keepa configured.")
+                           f"ranges (for stats) but nothing can pass the "
+                           f"{self.keepa_drop_percent:.0f}% gate without Keepa configured.")
 
         self.ai = AIScorer(config)
         self.min_ai_score = float(config.get("ai", {}).get("minimum_score", 50))
@@ -316,7 +316,10 @@ class MethodScanner:
         skipped = 0
         for asin, (it, price) in by_asin.items():
             cached_price = cached.get(asin)
-            if cached_price is not None and abs(float(cached_price) - float(price)) < 0.01:
+            # Skip unless the price DROPPED since we last saw this ASIN —
+            # same-or-higher prices are not a new deal, and re-posting them
+            # was the main source of duplicate ASINs in the channels.
+            if cached_price is not None and float(price) >= float(cached_price) - 0.01:
                 skipped += 1
                 continue
             to_process.append((it, asin, price))
@@ -335,7 +338,7 @@ class MethodScanner:
 
         asins = [a for _, a, _ in to_process]
         try:
-            avg90_map = self.keepa.get_avg90_batch(asins, domain=marketplace) or {}
+            avg_map = self.keepa.get_avg_batch(asins, domain=marketplace) or {}
             bump_method_stats(marketplace, category, method,
                               keepa_calls=max(1, (len(asins) + 99) // 100))
         except Exception as e:
@@ -344,28 +347,31 @@ class MethodScanner:
 
         survivors, rejected = [], 0
         for it, asin, price in to_process:
-            avg90 = avg90_map.get(asin)
-            if not avg90 or avg90 <= 0:
+            avg, window = avg_map.get(asin) or (None, None)
+            if not avg or avg <= 0:
                 rejected += 1
-                self._send_trash(method, it, asin, price, "No Keepa 90d data")
+                self._send_trash(method, it, asin, price,
+                                 "No Keepa data (90d or 30d)", marketplace)
                 continue
-            drop = (float(avg90) - price) / float(avg90) * 100
+            drop = (float(avg) - price) / float(avg) * 100
             if drop < self.keepa_drop_percent:
                 rejected += 1
                 self._send_trash(
                     method, it, asin, price,
-                    f"Keepa drop {drop:.0f}% < {self.keepa_drop_percent:.0f}% threshold",
+                    f"Keepa drop {drop:.0f}% ({window}d) < {self.keepa_drop_percent:.0f}% threshold",
+                    marketplace,
                 )
                 continue
-            it["_keepa_avg90"] = round(float(avg90), 2)
+            it["_keepa_avg90"] = round(float(avg), 2)
             it["_keepa_drop"] = round(drop, 1)
+            it["_keepa_window"] = window
             survivors.append((it, asin, price))
 
         if rejected:
             bump_method_stats(marketplace, category, method, keepa_rejected=rejected)
         return survivors
 
-    def _send_trash(self, method, it, asin, price, reason):
+    def _send_trash(self, method, it, asin, price, reason, marketplace=None):
         """Post a Keepa/AI reject to the method's trash channel (if wired)."""
         trash_url = (self.webhook_by_method.get(method) or {}).get("trash", "")
         if not trash_url:
@@ -377,6 +383,7 @@ class MethodScanner:
                     "title": DealFilters.extract_title(it) or "",
                     "current_price": price,
                     "reject_reason": reason,
+                    "marketplace": marketplace or self.marketplace,
                 },
                 webhook_url=trash_url,
             )
@@ -388,8 +395,23 @@ class MethodScanner:
         feed_user_id = METHOD_FEED_USER_IDS.get(method)
 
         ai_rejected = 0
+        tier_rejected = 0
         posted = 0
         for it, asin, price in survivors:
+            # Below the lowest % tier (50) -> trash, not the rest channel.
+            # Checked BEFORE AI scoring so no AI call is spent on them.
+            tier = self._tier_for_drop(it.get("_keepa_drop"))
+            if tier == "rest":
+                tier_rejected += 1
+                drop = it.get("_keepa_drop") or 0
+                window = it.get("_keepa_window") or 90
+                self._send_trash(
+                    method, it, asin, price,
+                    f"Keepa drop {drop:.0f}% ({window}d) below 50% tier minimum",
+                    marketplace,
+                )
+                continue
+
             title = DealFilters.extract_title(it) or ""
             score = 50.0
             try:
@@ -403,14 +425,14 @@ class MethodScanner:
                 self._send_trash(
                     method, it, asin, price,
                     f"AI score {score:.0f} < {self.min_ai_score:.0f} minimum",
+                    marketplace,
                 )
                 continue
 
             product = self._build_product(it, asin, price, category, marketplace, method, score)
 
-            # Route by Keepa 90-day drop %: >=90 / >=70 / >=50 / rest.
-            tier = self._tier_for_drop(it.get("_keepa_drop"))
-            webhook_url = webhooks.get(tier, "") or webhooks.get("rest", "")
+            # Route by Keepa drop %: >=90 / >=70 / >=50 (below 50 was trashed above).
+            webhook_url = webhooks.get(tier, "")
 
             sent = False
             try:
@@ -427,6 +449,8 @@ class MethodScanner:
                 except Exception as e:
                     logger.error(f"[METHOD] DB insert error for {asin}: {e}")
 
+        if tier_rejected:
+            bump_method_stats(marketplace, category, method, keepa_rejected=tier_rejected)
         if ai_rejected:
             bump_method_stats(marketplace, category, method, ai_rejected=ai_rejected)
         if posted:
@@ -447,6 +471,7 @@ class MethodScanner:
             "seller_id": seller.get("seller_id"),
             "keepa_avg_90": item.get("_keepa_avg90"),
             "keepa_drop_percent": item.get("_keepa_drop"),
+            "keepa_window": item.get("_keepa_window", 90),
             "ai_score": ai_score,
             "ai_reason": "",
             "image": DealFilters.extract_image(item),

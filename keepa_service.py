@@ -137,7 +137,18 @@ class KeepaService:
     # =====================================================================
 
     @staticmethod
-    def _avg90_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
+    def _stats_avg(stats, key, price_type):
+        """Read one avg array (e.g. "avg", "avg90", "avg30") from a Keepa stats
+        dict. Values are Keepa cents; -1/0 mean "no data". Returns float or None."""
+        avg_arr = stats.get(key)
+        if isinstance(avg_arr, list) and len(avg_arr) > price_type:
+            val = avg_arr[price_type]
+            if isinstance(val, (int, float)) and val > 0 and val != -1:
+                return round(val / 100, 2)
+        return None
+
+    @staticmethod
+    def _avg_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
         """
         Read the 90-day average price from a Keepa product exactly like
         KeepaBot-master's dealsBrowser does:
@@ -146,23 +157,37 @@ class KeepaService:
             avg   = stats["avg"][price_type]      # Keepa cents, price_type 1 = NEW
             price = avg / 100                     # -> currency units
 
-        Keepa uses -1 (and sometimes 0) to mean "no data". Returns a float
-        price in currency units, or None when unavailable.
+        Falls back to the 30-day average (stats["avg30"], included in the same
+        response at no extra token cost) when no 90-day data exists — common
+        for recently listed products.
+
+        Returns (price, window_days) where window_days is 90 or 30, or
+        (None, None) when neither window has data.
         """
         stats = product.get("stats") or {}
-        avg_arr = stats.get("avg")
-        if isinstance(avg_arr, list) and len(avg_arr) > price_type:
-            val = avg_arr[price_type]
-            if isinstance(val, (int, float)) and val > 0 and val != -1:
-                return round(val / 100, 2)
-        return None
+        val = (KeepaService._stats_avg(stats, "avg", price_type)
+               or KeepaService._stats_avg(stats, "avg90", price_type))
+        if val is not None:
+            return val, 90
+        val = KeepaService._stats_avg(stats, "avg30", price_type)
+        if val is not None:
+            return val, 30
+        return None, None
 
-    def get_avg90_batch(self, asins, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
+    @staticmethod
+    def _avg90_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
+        """Back-compat: value-only version of _avg_from_product (with 30d fallback)."""
+        return KeepaService._avg_from_product(product, price_type)[0]
+
+    def get_avg_batch(self, asins, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
         """
-        Fetch the Keepa 90-day average price for many ASINs (<=100 per request).
+        Fetch the Keepa average price for many ASINs (<=100 per request),
+        preferring the 90-day window and falling back to 30-day when 90d
+        has no data.
 
-        Returns {asin: avg90_price_or_None}. Uses/fills the shared self.cache
-        keyed as ("avg90", asin, price_type) so repeated runs are cheap.
+        Returns {asin: (avg_price, window_days) or (None, None)}. Uses/fills
+        the shared self.cache keyed as ("avg90", asin, price_type) so repeated
+        runs are cheap.
         """
         out = {}
         to_query = []
@@ -180,7 +205,7 @@ class KeepaService:
             try:
                 products = self.api.query(chunk, domain=domain, stats=90, history=False) or []
             except Exception as e:
-                logger.error(f"[KEEPA] avg90 batch error: {e}")
+                logger.error(f"[KEEPA] avg batch error: {e}")
                 products = []
 
             returned = set()
@@ -189,20 +214,28 @@ class KeepaService:
                 if not asin:
                     continue
                 returned.add(asin)
-                val = self._avg90_from_product(product, price_type)
+                val = self._avg_from_product(product, price_type)
                 self.cache[("avg90", asin, price_type)] = val
                 out[asin] = val
 
             # Cache misses as None so we don't re-query them this run.
             for asin in chunk:
                 if asin not in returned:
-                    self.cache[("avg90", asin, price_type)] = None
-                    out[asin] = None
+                    self.cache[("avg90", asin, price_type)] = (None, None)
+                    out[asin] = (None, None)
 
         if to_query:
-            logger.info(f"[KEEPA] avg90 for {len(to_query)} ASIN(s) in "
+            logger.info(f"[KEEPA] avg (90d/30d) for {len(to_query)} ASIN(s) in "
                         f"{((len(to_query) - 1) // 100) + 1} request(s)")
         return out
+
+    def get_avg90_batch(self, asins, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
+        """
+        Value-only wrapper around get_avg_batch: {asin: avg_price_or_None}.
+        Includes the 30-day fallback when 90-day data is missing.
+        """
+        return {asin: pair[0] if pair else None
+                for asin, pair in self.get_avg_batch(asins, domain, price_type).items()}
 
     def get_avg90_by_eans(self, eans, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
         """
