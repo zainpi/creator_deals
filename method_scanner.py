@@ -39,6 +39,7 @@ from datetime import datetime
 from creators_search import CreatorsSearch
 from keepa_service import KeepaService
 from ai_scoring import AIScorer
+from deal_scoring import compute_scores, to_product_fields
 from discord_alerts import DiscordAlerts
 from filters import DealFilters
 from database import (
@@ -427,23 +428,31 @@ class MethodScanner:
                 continue
 
             title = DealFilters.extract_title(it) or ""
-            score = 50.0
+            estimate = {}
             try:
                 if self.ai.enabled and title:
-                    score = float(self.ai.score_deal(title, asin))
+                    estimate = self.ai.estimate(
+                        title, asin, marketplace=marketplace or self.marketplace,
+                        price=price, category=category,
+                    )
             except Exception as e:
-                logger.warning(f"[METHOD] AI error for {asin}: {e}")
+                logger.warning(f"[METHOD] AI estimate error for {asin}: {e}")
+
+            # All math/scoring is deterministic (deal_scoring.py); the AI only
+            # supplied the price ranges above.
+            scoring = compute_scores(estimate, price, self.config)
+            score = scoring["overall_score"]
 
             if score < self.min_ai_score:
                 ai_rejected += 1
                 self._send_trash(
                     method, it, asin, price,
-                    f"AI score {score:.0f} < {self.min_ai_score:.0f} minimum",
+                    f"Score {score:.0f} < {self.min_ai_score:.0f} minimum — {scoring['ai_reason']}",
                     marketplace,
                 )
                 continue
 
-            product = self._build_product(it, asin, price, category, marketplace, method, score)
+            product = self._build_product(it, asin, price, category, marketplace, method, scoring)
 
             # Route by Keepa drop %: >=90 / >=70 / >=50 (below 50 was trashed above).
             webhook_url = webhooks.get(tier, "")
@@ -471,10 +480,10 @@ class MethodScanner:
             bump_method_stats(marketplace, category, method, posted=posted)
 
     @staticmethod
-    def _build_product(item, asin, price, category, marketplace, method, ai_score):
+    def _build_product(item, asin, price, category, marketplace, method, scoring):
         listing = MethodScanner._first_listing(item)
         seller = DealFilters.extract_seller(listing)
-        return {
+        product = {
             "asin": asin,
             "title": DealFilters.extract_title(item) or "",
             "marketplace": marketplace,
@@ -486,10 +495,10 @@ class MethodScanner:
             "keepa_avg_90": item.get("_keepa_avg90"),
             "keepa_drop_percent": item.get("_keepa_drop"),
             "keepa_window": item.get("_keepa_window", 90),
-            "ai_score": ai_score,
-            "ai_reason": "",
             "image": DealFilters.extract_image(item),
         }
+        product.update(to_product_fields(scoring))
+        return product
 
     @staticmethod
     def _first_listing(item):

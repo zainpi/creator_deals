@@ -249,6 +249,7 @@ def api_test():
     from creators_search import CreatorsSearch
     from keepa_service import KeepaService
     from ai_scoring import AIScorer
+    from deal_scoring import compute_scores
 
     try:
         params = request.json
@@ -310,15 +311,23 @@ def api_test():
                             logger.warning(f"[TEST] Keepa error for {asin}: {e}")
 
                     ai_score = 50.0
+                    scoring = None
                     if test_config["ai"]["enabled"] and keepa_passed_item and title:
                         try:
-                            ai_score = ai.score_deal(title, asin)
+                            buy = float(price_amt) if price_amt is not None else None
+                            estimate = ai.estimate(
+                                title, asin,
+                                marketplace=test_config["amazon"]["marketplace"],
+                                price=buy,
+                            )
+                            scoring = compute_scores(estimate, buy, test_config)
+                            ai_score = scoring["overall_score"]
                             if ai_score >= test_config["ai"]["minimum_score"]:
                                 ai_passed += 1
                         except Exception as e:
                             logger.warning(f"[TEST] AI error for {asin}: {e}")
 
-                    results.append({
+                    row = {
                         "asin": asin,
                         "title": title[:80],
                         "price": float(price_amt) if price_amt is not None else None,
@@ -326,7 +335,20 @@ def api_test():
                         "ai_score": ai_score,
                         "page": page_num,
                         "url": f"https://www.amazon.{creators._tld_for_marketplace(test_config['amazon']['marketplace'])}/dp/{asin}",
-                    })
+                    }
+                    if scoring:
+                        row.update({
+                            "buying_score": scoring["buying_score"],
+                            "resell_score": scoring["resell_score"],
+                            "estimated_profit": scoring["estimated_profit"],
+                            "discount_pct": scoring["discount_pct"],
+                            "retail_low": scoring["retail_low"],
+                            "retail_high": scoring["retail_high"],
+                            "resale_low": scoring["resale_low"],
+                            "resale_high": scoring["resale_high"],
+                            "ai_reason": scoring["ai_reason"],
+                        })
+                    results.append(row)
             except Exception as e:
                 error_msg = f"Page {page_num}: {str(e)[:100]}"
                 errors.append(error_msg)

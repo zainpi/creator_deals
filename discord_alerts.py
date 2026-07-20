@@ -100,13 +100,55 @@ class DiscordAlerts:
                 inline=True
             )
 
-            ai_val = product.get("ai_score")
-            ai_str = f"{float(ai_val):.0f}/100" if isinstance(ai_val, (int, float)) else "N/A"
+            # Computed deal metrics (deal_scoring.py). The AI only supplied the
+            # retail/resale ranges; everything below is deterministic math.
+            def _num(v):
+                return v if isinstance(v, (int, float)) else None
+
+            overall = _num(product.get("overall_score"))
+            if overall is None:
+                overall = _num(product.get("ai_score"))
             embed.add_embed_field(
-                name="⭐ AI Score",
-                value=ai_str,
-                inline=True
+                name="⭐ Overall",
+                value=f"{overall:.0f}/100" if overall is not None else "N/A",
+                inline=True,
             )
+
+            buying = _num(product.get("buying_score"))
+            embed.add_embed_field(
+                name="🛒 Buying",
+                value=f"{buying:.0f}/100" if buying is not None else "N/A",
+                inline=True,
+            )
+
+            resell = _num(product.get("resell_score"))
+            embed.add_embed_field(
+                name="🔁 Resell",
+                value=f"{resell:.0f}/100" if resell is not None else "N/A",
+                inline=True,
+            )
+
+            profit = _num(product.get("estimated_profit"))
+            embed.add_embed_field(
+                name="💰 Est. Profit",
+                value=f"€{profit:.2f}" if profit is not None else "N/A",
+                inline=True,
+            )
+
+            disc = _num(product.get("discount_pct"))
+            embed.add_embed_field(
+                name="🏷️ vs Retail",
+                value=f"-{disc:.0f}%" if disc is not None else "N/A",
+                inline=True,
+            )
+
+            rl, rh = _num(product.get("resale_low")), _num(product.get("resale_high"))
+            if rl is not None and rh is not None:
+                embed.add_embed_field(
+                    name="📦 Resale Est.",
+                    value=f"€{rl:.0f}–€{rh:.0f}",
+                    inline=True,
+                )
 
             embed.add_embed_field(
                 name="🏪 Seller",

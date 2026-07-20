@@ -40,7 +40,9 @@ function renderProducts(products, containerId = 'products') {
         const hasAvg90  = p.keepa_avg_90 !== null && p.keepa_avg_90 !== undefined && !isNaN(p.keepa_avg_90);
         const hasDrop   = p.keepa_drop_percent !== null && p.keepa_drop_percent !== undefined && !isNaN(p.keepa_drop_percent);
         const hasSavings = p.savings_percent !== null && p.savings_percent !== undefined && !isNaN(p.savings_percent);
-        const score     = typeof p.ai_score === 'number' ? `${p.ai_score.toFixed(0)}/100` : 'N/A';
+        const overallVal = typeof p.overall_score === 'number' ? p.overall_score
+                          : (typeof p.ai_score === 'number' ? p.ai_score : null);
+        const score     = overallVal !== null ? `${overallVal.toFixed(0)}/100` : 'N/A';
         const seller    = p.seller_name || 'Unknown';
         const posted    = p.posted ? '✅' : '❌';
         const hasRating = p.seller_rating !== null && p.seller_rating !== undefined && !isNaN(p.seller_rating);
@@ -99,7 +101,11 @@ function renderProducts(products, containerId = 'products') {
                             ${discountBadge}
                         </span>
                         ${avg90Label}
-                        <span class="metric" title="AI score${p.ai_reason ? ' — ' + String(p.ai_reason).substring(0, 80) : ''}">⭐ ${score}</span>
+                        <span class="metric" title="Overall score${p.ai_reason ? ' — ' + String(p.ai_reason).replace(/"/g, '&quot;').substring(0, 160) : ''}">⭐ ${score}</span>
+                        ${typeof p.estimated_profit === 'number' ? `<span class="metric" title="Estimated profit (resale midpoint − buy price)">💰 ${cur}${p.estimated_profit.toFixed(2)}</span>` : ''}
+                        ${typeof p.buying_score === 'number' ? `<span class="metric" title="Buying score — how far below estimated retail you're buying">🛒 ${p.buying_score.toFixed(0)}</span>` : ''}
+                        ${typeof p.resell_score === 'number' ? `<span class="metric" title="Resell score — estimated profit & margin">🔁 ${p.resell_score.toFixed(0)}</span>` : ''}
+                        ${(typeof p.resale_low === 'number' && typeof p.resale_high === 'number') ? `<span class="metric" title="AI resale estimate range">📦 ${cur}${p.resale_low.toFixed(0)}–${p.resale_high.toFixed(0)}</span>` : ''}
                         ${pageFound !== null ? `<span class="metric" title="Search page">🗂 p${pageFound}</span>` : ''}
                         <span class="metric posted" title="Posted to Discord">${posted}</span>
                     </div>
@@ -538,7 +544,11 @@ async function runTest() {
                                 ${item.keepa_drop !== null && item.keepa_drop !== undefined
                                     ? `<span class="metric">📉 ${item.keepa_drop.toFixed(1)}%</span>`
                                     : `<span class="metric">📉 N/A</span>`}
-                                <span class="metric">⭐ ${(item.ai_score || 50.0).toFixed(0)}/100</span>
+                                <span class="metric" title="Overall score${item.ai_reason ? ' — ' + String(item.ai_reason).replace(/"/g, '&quot;').substring(0, 160) : ''}">⭐ ${(typeof item.ai_score === 'number' ? item.ai_score : 50.0).toFixed(0)}/100</span>
+                                ${typeof item.estimated_profit === 'number' ? `<span class="metric" title="Estimated profit (resale midpoint − buy price)">💰 €${item.estimated_profit.toFixed(2)}</span>` : ''}
+                                ${typeof item.buying_score === 'number' ? `<span class="metric" title="Buying score">🛒 ${item.buying_score.toFixed(0)}</span>` : ''}
+                                ${typeof item.resell_score === 'number' ? `<span class="metric" title="Resell score">🔁 ${item.resell_score.toFixed(0)}</span>` : ''}
+                                ${(typeof item.resale_low === 'number' && typeof item.resale_high === 'number') ? `<span class="metric" title="AI resale estimate range">📦 €${item.resale_low.toFixed(0)}–${item.resale_high.toFixed(0)}</span>` : ''}
                             </div>
                         </div>
                     </div>

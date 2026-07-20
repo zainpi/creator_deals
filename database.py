@@ -51,14 +51,31 @@ def _q(sql: str) -> str:
     return sql.replace("?", "%s") if IS_POSTGRES else sql
 
 
+# Scoring columns added when the AI was narrowed to price-estimation only and
+# all math moved into deal_scoring.py. Backfilled onto pre-existing tables.
+_SCORING_COLUMNS = (
+    "retail_low", "retail_high", "resale_low", "resale_high", "resale_mid",
+    "estimated_profit", "discount_pct", "resell_score", "buying_score",
+    "overall_score",
+)
+
+
 def _migrate(conn):
-    """SQLite-only schema backfill for pre-existing local databases.
-    Postgres deployments start fresh with the full schema below, so no migration."""
-    if IS_POSTGRES:
-        return
+    """Schema backfill for pre-existing databases (both SQLite and Postgres)."""
     c = conn.cursor()
 
-    # ---- discovered_products ----
+    if IS_POSTGRES:
+        # Idempotent; a no-op on a fresh DB where the table doesn't exist yet
+        # (CREATE TABLE below then builds the full schema).
+        for col in _SCORING_COLUMNS:
+            c.execute(
+                f"ALTER TABLE IF EXISTS discovered_products "
+                f"ADD COLUMN IF NOT EXISTS {col} REAL"
+            )
+        conn.commit()
+        return
+
+    # ---- discovered_products (SQLite) ----
     c.execute("PRAGMA table_info('discovered_products')")
     cols = [row[1] for row in c.fetchall()]
     if cols:
@@ -66,8 +83,10 @@ def _migrate(conn):
             # Old schema without user_id — must drop and recreate (can't change PK)
             c.execute("DROP TABLE discovered_products")
             conn.commit()
-        elif 'seller_rating' not in cols:
-            c.execute("ALTER TABLE discovered_products ADD COLUMN seller_rating REAL")
+        else:
+            for col in ("seller_rating",) + _SCORING_COLUMNS:
+                if col not in cols:
+                    c.execute(f"ALTER TABLE discovered_products ADD COLUMN {col} REAL")
             conn.commit()
 
     # ---- user_preferences: backfill any columns added after the table first shipped ----
@@ -112,6 +131,16 @@ def init_db():
             keepa_drop_percent REAL,
             ai_score REAL,
             ai_reason TEXT,
+            retail_low REAL,
+            retail_high REAL,
+            resale_low REAL,
+            resale_high REAL,
+            resale_mid REAL,
+            estimated_profit REAL,
+            discount_pct REAL,
+            resell_score REAL,
+            buying_score REAL,
+            overall_score REAL,
             page_found INTEGER,
             seller_rating REAL,
             first_seen TEXT,
@@ -311,8 +340,11 @@ def insert_product(product):
         INSERT INTO discovered_products (
             user_id, asin, title, marketplace, current_price, savings_percent,
             category, seller_name, seller_id, image, keepa_avg_90, keepa_drop_percent,
-            ai_score, ai_reason, page_found, seller_rating, first_seen, last_seen, posted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ai_score, ai_reason,
+            retail_low, retail_high, resale_low, resale_high, resale_mid,
+            estimated_profit, discount_pct, resell_score, buying_score, overall_score,
+            page_found, seller_rating, first_seen, last_seen, posted
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, asin) DO UPDATE SET
             title=EXCLUDED.title,
             marketplace=EXCLUDED.marketplace,
@@ -326,6 +358,16 @@ def insert_product(product):
             keepa_drop_percent=EXCLUDED.keepa_drop_percent,
             ai_score=EXCLUDED.ai_score,
             ai_reason=EXCLUDED.ai_reason,
+            retail_low=EXCLUDED.retail_low,
+            retail_high=EXCLUDED.retail_high,
+            resale_low=EXCLUDED.resale_low,
+            resale_high=EXCLUDED.resale_high,
+            resale_mid=EXCLUDED.resale_mid,
+            estimated_profit=EXCLUDED.estimated_profit,
+            discount_pct=EXCLUDED.discount_pct,
+            resell_score=EXCLUDED.resell_score,
+            buying_score=EXCLUDED.buying_score,
+            overall_score=EXCLUDED.overall_score,
             page_found=EXCLUDED.page_found,
             seller_rating=EXCLUDED.seller_rating,
             last_seen=EXCLUDED.last_seen,
@@ -345,6 +387,16 @@ def insert_product(product):
         product.get("keepa_drop_percent"),
         product.get("ai_score"),
         product.get("ai_reason"),
+        product.get("retail_low"),
+        product.get("retail_high"),
+        product.get("resale_low"),
+        product.get("resale_high"),
+        product.get("resale_mid"),
+        product.get("estimated_profit"),
+        product.get("discount_pct"),
+        product.get("resell_score"),
+        product.get("buying_score"),
+        product.get("overall_score"),
         product.get("page_found"),
         product.get("seller_rating"),
         product.get("first_seen", datetime.utcnow().isoformat()),

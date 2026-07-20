@@ -700,5 +700,149 @@
     "priceNote": "",
     "minSavingPercent": 50,
     "intervalEuro": 50
+  },
+  {
+    "id": 79,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "78191031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 80,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "355007011",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 81,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "80084031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 82,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "213083031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 83,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "340843031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 84,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "64187031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 85,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "908823031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 86,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "562066",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 87,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "10925031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 88,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "5866098031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 89,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "340852031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 90,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "84230031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 91,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "3167641",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 92,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "340849031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 93,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "12950651",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 94,
+    "searchIndex": "Angebote",
+    "keywords": "",
+    "browseNodeId": "16435051",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
   }
 ]

@@ -18,6 +18,7 @@ from creators_search import (
 )
 from keepa_service import KeepaService
 from ai_scoring import AIScorer
+from deal_scoring import compute_scores, to_product_fields
 from discord_alerts import DiscordAlerts
 from filters import DealFilters, set_blocked_categories
 from database import (
@@ -298,15 +299,18 @@ class ContinuousScanner:
         seller_data = DealFilters.extract_seller(listing)
         title = DealFilters.extract_title(norm)
 
-        ai_score = 50.0
-        ai_reason = ""
+        estimate = {}
         try:
             if self.ai and self.ai.enabled and title:
-                ai_score = float(self.ai.score_deal(title, asin))
-            elif not (self.ai and self.ai.enabled):
-                ai_reason = "AI disabled"
+                estimate = self.ai.estimate(
+                    title, asin, marketplace=norm.get("_marketplace"),
+                    price=price, category=category,
+                )
         except Exception as e:
-            logger.warning(f"[SCANNER] AI error for {asin}: {e}")
+            logger.warning(f"[SCANNER] AI estimate error for {asin}: {e}")
+
+        # Deterministic scoring from the AI's estimated ranges (deal_scoring.py).
+        scoring = compute_scores(estimate, price, self.config)
 
         product = {
             "user_id": GLOBAL_FEED_USER_ID,
@@ -321,10 +325,9 @@ class ContinuousScanner:
             "seller_rating": seller_rating if seller_rating is not None else (0 if not self.keepa_active else None),
             "keepa_avg_90": (kd or {}).get("avg90"),
             "keepa_drop_percent": (kd or {}).get("drop_percent"),
-            "ai_score": ai_score,
-            "ai_reason": ai_reason,
             "image": DealFilters.extract_image(norm),
         }
+        product.update(to_product_fields(scoring))
         page_found = norm.get("_page")
         if page_found is not None:
             product["page_found"] = int(page_found)

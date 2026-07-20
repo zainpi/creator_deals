@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from creators_search import CreatorsSearch
 from keepa_service import KeepaService
 from ai_scoring import AIScorer
+from deal_scoring import compute_scores, to_product_fields
 from discord_alerts import DiscordAlerts
 from filters import DealFilters
 from database import asin_exists, insert_product
@@ -262,15 +263,19 @@ class DealScheduler:
         if page_found is not None:
             product["page_found"] = int(page_found)
 
-        # AI scoring
+        # AI estimate -> deterministic scoring (deal_scoring.py). The model only
+        # supplies price ranges; discount/profit/scores/penalties are computed.
         if self.config.get("ai", {}).get("enabled", True) and self.ai:
             try:
                 title = product.get("title") or ""
                 if title:
-                    score = self.ai.score_deal(title, asin)
-                    product["ai_score"] = float(score)
-                    product["ai_reason"] = ""
-                    if product["ai_score"] >= self.min_ai_score:
+                    estimate = self.ai.estimate(
+                        title, asin, marketplace=product.get("marketplace"),
+                        price=product.get("current_price"), category=product.get("category"),
+                    )
+                    scoring = compute_scores(estimate, product.get("current_price"), self.config)
+                    product.update(to_product_fields(scoring))
+                    if scoring["estimate_ok"] and product["ai_score"] >= self.min_ai_score:
                         self.stats.ai_passed += 1
                         if self.discord.send(product):
                             self.stats.discord_posted += 1
