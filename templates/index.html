@@ -454,6 +454,18 @@
                 <div class="stat-card" title="Even split of the daily budget across currently-enabled category/method targets"><div class="stat-label">Theoretical / Target</div><div class="stat-value" id="method_theoretical">0</div></div>
             </div>
 
+            <div class="test-filter-row" style="margin:12px 0;">
+                <div class="filter-group">
+                    <label title="Nodes are seeded per-marketplace — switch here to view/toggle GB, FR, or ES categories independently of DE">Marketplace</label>
+                    <select id="method_marketplace" onchange="loadMethodCategories()">
+                        <option value="DE">🇩🇪 Germany</option>
+                        <option value="GB">🇬🇧 UK</option>
+                        <option value="FR">🇫🇷 France</option>
+                        <option value="ES">🇪🇸 Spain</option>
+                    </select>
+                </div>
+            </div>
+
             <h4 style="margin:16px 0 8px;">Categories</h4>
             <div style="overflow-x:auto;">
                 <table class="batch-table" id="method-categories-table">

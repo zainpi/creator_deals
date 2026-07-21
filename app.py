@@ -652,9 +652,13 @@ def _load_topcategories():
 def api_method_test_categories():
     """Every top-level category, with which methods currently have browse-node
     data (seeded into method_nodes by the worker on startup) and whether each
-    is switched on in the round robin — powers the 'Pick a Category' picker."""
+    is switched on in the round robin — powers the 'Pick a Category' picker.
+    Nodes exist per-marketplace now, so this reports on ONE marketplace at a
+    time: pass ?marketplace=GB (defaults to method_test.marketplace)."""
+    marketplace = str(request.args.get("marketplace")
+                       or config.get("method_test", {}).get("marketplace", "DE")).upper()
     tops = {t.get("searchIndex"): t for t in _load_topcategories() if t.get("searchIndex")}
-    nodes = get_method_nodes()
+    nodes = get_method_nodes(marketplace=marketplace)
 
     groups = {}  # (category, method) -> {node_count, enabled_count}
     for n in nodes:
@@ -750,7 +754,11 @@ def api_method_test_status():
     nodes = get_method_nodes()
     groups = {}
     for n in nodes:
-        key = (n["category"], int(n["method"]))
+        # marketplace is part of the key: nodes now exist per-marketplace, so
+        # without it DE/GB/FR/ES rows for the same category+method would get
+        # silently summed together into one row (and "marketplace" below would
+        # just show whichever one happened to be processed last).
+        key = (n["category"], int(n["method"]), n["marketplace"])
         g = groups.setdefault(key, {
             "category": n["category"], "method": int(n["method"]),
             "marketplace": n["marketplace"], "node_count": 0, "enabled_count": 0,

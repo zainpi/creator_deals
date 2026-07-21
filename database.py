@@ -274,9 +274,16 @@ def init_db():
             asin TEXT NOT NULL,
             last_price REAL,
             last_checked_at TEXT,
+            keepa_parser_version INTEGER DEFAULT 0,
             PRIMARY KEY (marketplace, method, asin)
         )
     ''')
+    # Parser v2 adds buy-box/FBA/Amazon fallbacks. Old "no data" decisions
+    # must be evaluated once again instead of being hidden by this cache.
+    try:
+        c.execute("ALTER TABLE method_asin_cache ADD COLUMN keepa_parser_version INTEGER DEFAULT 0")
+    except Exception:
+        pass
 
     # Per-day, per-category/method credit + outcome counters — powers the
     # "Theoretical vs Actual credit consumption" and Keepa success-rate views.
@@ -739,7 +746,7 @@ def update_method_node_price(marketplace, category, method, browse_node_id, curr
         conn.close()
 
 
-def get_method_asin_cache_batch(marketplace, method, asins):
+def get_method_asin_cache_batch(marketplace, method, asins, keepa_parser_version=2):
     """Return {asin: last_price} for the given ASINs (only those already cached)."""
     if not asins:
         return {}
@@ -748,15 +755,16 @@ def get_method_asin_cache_batch(marketplace, method, asins):
     placeholders = ",".join("?" for _ in asins)
     c.execute(
         _q(f"SELECT asin, last_price FROM method_asin_cache "
-           f"WHERE marketplace=? AND method=? AND asin IN ({placeholders})"),
-        (marketplace, int(method), *asins),
+           f"WHERE marketplace=? AND method=? AND keepa_parser_version=? "
+           f"AND asin IN ({placeholders})"),
+        (marketplace, int(method), int(keepa_parser_version), *asins),
     )
     rows = c.fetchall()
     conn.close()
     return {row[0]: row[1] for row in rows}
 
 
-def upsert_method_asin_cache_batch(marketplace, method, asin_price_pairs):
+def upsert_method_asin_cache_batch(marketplace, method, asin_price_pairs, keepa_parser_version=2):
     """asin_price_pairs: iterable of (asin, price)."""
     pairs = [(a, p) for a, p in asin_price_pairs if a]
     if not pairs:
@@ -767,12 +775,14 @@ def upsert_method_asin_cache_batch(marketplace, method, asin_price_pairs):
     try:
         for asin, price in pairs:
             c.execute(_q('''
-                INSERT INTO method_asin_cache (marketplace, method, asin, last_price, last_checked_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO method_asin_cache
+                    (marketplace, method, asin, last_price, last_checked_at, keepa_parser_version)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT (marketplace, method, asin) DO UPDATE SET
                     last_price=EXCLUDED.last_price,
-                    last_checked_at=EXCLUDED.last_checked_at
-            '''), (marketplace, int(method), asin, price, now))
+                    last_checked_at=EXCLUDED.last_checked_at,
+                    keepa_parser_version=EXCLUDED.keepa_parser_version
+            '''), (marketplace, int(method), asin, price, now, int(keepa_parser_version)))
         conn.commit()
     finally:
         conn.close()

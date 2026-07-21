@@ -1135,8 +1135,9 @@ function toggleMethodPanel() {
 
 async function loadMethodCategories() {
     const tbody = document.getElementById('method-categories-tbody');
+    const marketplace = document.getElementById('method_marketplace')?.value || 'DE';
     try {
-        const res = await fetch('/api/method_test/categories');
+        const res = await fetch(`/api/method_test/categories?marketplace=${encodeURIComponent(marketplace)}`);
         const cats = (await res.json()) || [];
         if (!cats.length) {
             tbody.innerHTML = '<tr><td colspan="3">No categories seeded yet — start the worker process once to seed them.</td></tr>';
@@ -1165,11 +1166,12 @@ async function loadMethodCategories() {
 }
 
 async function toggleMethodCategory(searchIndex, method, enabled) {
+    const marketplace = document.getElementById('method_marketplace')?.value || 'DE';
     try {
         await fetch('/api/method_test/toggle', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ category: searchIndex, method, enabled }),
+            body:    JSON.stringify({ category: searchIndex, method, enabled, marketplace }),
         });
         await refreshMethodStatus();
     } catch (e) {

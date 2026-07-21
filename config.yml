@@ -152,9 +152,16 @@ seller:
 # only sets the engine's fixed parameters.
 method_test:
   auto_start: true               # start the engine enabled on worker boot (runs continuously; dashboard can still pause it)
-  marketplace: DE                # browse node IDs are currently DE-only
+  marketplace: DE                # back-compat default; used as fallback marketplace where one isn't otherwise specified
+  marketplaces: [DE, GB, FR, ES] # round robin spans all of these; GB/FR/ES are seeded with the SAME browse node IDs as DE
+                                  # (categories.json/topcategories.json have no per-marketplace IDs) — Amazon assigns different
+                                  # node IDs per marketplace, so some/all GB/FR/ES nodes may return empty or wrong-category
+                                  # results until real per-marketplace IDs are sourced. Watch the dashboard per marketplace.
   max_price: 450                 # € sweep ceiling per node before wrapping to 0
   keepa_drop_percent: 30         # flat threshold: reject unless price is >= this % below the Keepa avg (90d, or 30d fallback)
   min_drop_currency: 30          # reject unless the Keepa average is at least €30 above the current price
-  tick_seconds: 110              # delay between round-robin ticks; 86400/110 ≈ 785 ticks × 10 pages max ≈ 7850 calls/day, keeps worst case ~9% under the 8640 budget
-  daily_budget_requests: 8640    # Creator API basic-plan TPD budget (10 ASINs/call); engine pauses once reached, resumes next day
+  tick_seconds: 110              # delay between round-robin ticks; shared across ALL enabled nodes in ALL marketplaces above —
+                                  # adding GB/FR/ES multiplies the enabled node count, so each node (incl. existing DE ones)
+                                  # gets revisited proportionally less often at this same fixed pace
+  daily_budget_requests: 8640    # Creator API basic-plan TPD budget (10 ASINs/call), shared globally across every marketplace
+                                  # above; engine pauses once reached (across all of them combined), resumes next day

@@ -87,7 +87,9 @@ class MethodScanner:
         self.config = config
         mt = config.get("method_test", {}) or {}
 
-        self.marketplace = str(mt.get("marketplace", "DE")).upper()
+        raw_mkts = mt.get("marketplaces") or [mt.get("marketplace", "DE")]
+        self.marketplaces = [str(m).upper() for m in raw_mkts] or ["DE"]
+        self.marketplace = self.marketplaces[0]  # back-compat default for single-value fallback usages below
         self.max_price = float(mt.get("max_price", 450))
         self.keepa_drop_percent = float(mt.get("keepa_drop_percent", 30))
         self.min_drop_currency = float(mt.get("min_drop_currency", 30))
@@ -158,8 +160,15 @@ class MethodScanner:
     def _seed_nodes(self):
         """Populate method_nodes from data/categories.json (Method 1, one row
         per unique subcategory browse node) and data/topcategories.json
-        (Method 2, one row per category that has a parentBrowseNodeId).
-        Idempotent — safe to call on every startup."""
+        (Method 2, one row per category that has a parentBrowseNodeId), once
+        per marketplace in self.marketplaces.
+        Idempotent — safe to call on every startup.
+
+        NOTE: categories.json/topcategories.json carry no per-marketplace
+        browse node IDs — every marketplace here is seeded with the SAME
+        (DE-sourced) IDs. Amazon's browse node trees differ per marketplace,
+        so GB/FR/ES nodes may return empty or wrong-category results until
+        real per-marketplace IDs replace these."""
         cats = _load_json(_CATEGORIES_PATH)
         tops = _load_json(_TOPCATEGORIES_PATH)
 
@@ -179,24 +188,25 @@ class MethodScanner:
 
         top_by_index = {t.get("searchIndex"): t for t in tops if t.get("searchIndex")}
 
-        for (idx, node), label in seen_nodes.items():
-            display = (top_by_index.get(idx) or {}).get("displayName") or idx
-            enabled = 1 if idx in _DEFAULT_ENABLED_CATEGORIES else 0
-            seed_method_node(
-                self.marketplace, idx, 1, node,
-                label=f"{display} → {label}", keywords=None, enabled=enabled,
-            )
+        for marketplace in self.marketplaces:
+            for (idx, node), label in seen_nodes.items():
+                display = (top_by_index.get(idx) or {}).get("displayName") or idx
+                enabled = 1 if idx in _DEFAULT_ENABLED_CATEGORIES else 0
+                seed_method_node(
+                    marketplace, idx, 1, node,
+                    label=f"{display} → {label}", keywords=None, enabled=enabled,
+                )
 
-        # Method 2: one node per category with a known parent browse node id.
-        for idx, t in top_by_index.items():
-            parent = t.get("parentBrowseNodeId")
-            if not parent:
-                continue
-            enabled = 1 if idx in _DEFAULT_ENABLED_CATEGORIES else 0
-            seed_method_node(
-                self.marketplace, idx, 2, str(parent),
-                label=t.get("displayName") or idx, keywords=None, enabled=enabled,
-            )
+            # Method 2: one node per category with a known parent browse node id.
+            for idx, t in top_by_index.items():
+                parent = t.get("parentBrowseNodeId")
+                if not parent:
+                    continue
+                enabled = 1 if idx in _DEFAULT_ENABLED_CATEGORIES else 0
+                seed_method_node(
+                    marketplace, idx, 2, str(parent),
+                    label=t.get("displayName") or idx, keywords=None, enabled=enabled,
+                )
 
     # --------------------------------------------------------------- scan tick
 
@@ -217,7 +227,7 @@ class MethodScanner:
             )
             return None
 
-        nodes = get_method_nodes(marketplace=self.marketplace, enabled_only=True)
+        nodes = get_method_nodes(enabled_only=True)  # spans every marketplace in self.marketplaces — one shared round robin
         if not nodes:
             update_method_engine_state(running=0, last_heartbeat=now,
                                        current_target="No categories enabled")
@@ -336,7 +346,6 @@ class MethodScanner:
         if not to_process:
             return []
 
-        upsert_method_asin_cache_batch(marketplace, method, [(a, p) for _, a, p in to_process])
         bump_method_stats(marketplace, category, method, asins_scanned=len(to_process))
 
         # ---- Keepa: best available avg (90d, preferring longer 180d/365d
@@ -353,6 +362,11 @@ class MethodScanner:
         except Exception as e:
             logger.error(f"[METHOD] Keepa batch error: {e}")
             return []
+
+        # Only suppress an unchanged price after Keepa answered successfully.
+        # A token/network/API failure must remain eligible for the next scan.
+        upsert_method_asin_cache_batch(marketplace, method,
+                                       [(a, p) for _, a, p in to_process])
 
         survivors, rejected = [], 0
         for it, asin, price in to_process:
@@ -526,7 +540,7 @@ class MethodScanLoop:
 
     def run_forever(self):
         logger.info(f"[METHOD] Starting method-comparison loop (interval {self.interval}s, "
-                    f"marketplace {self.scanner.marketplace})")
+                    f"marketplaces {self.scanner.marketplaces})")
         while True:
             try:
                 self.scanner.run_once()

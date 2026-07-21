@@ -7,6 +7,9 @@ logger = logging.getLogger(__name__)
 # Keepa CSV/stats price-type index. KeepaBot-master reads stats["avg"][1]
 # (see country_query_configs.py -> "priceTypes": [1]); index 1 = NEW price.
 KEEPA_PRICE_TYPE_NEW = 1
+# Keepa CSV indexes. A marketplace offer can have no generic NEW history while
+# still having perfectly good buy-box/FBA/Amazon history (common for variations).
+KEEPA_PRICE_TYPES = (18, 1, 10, 0, 7)
 
 
 class KeepaService:
@@ -31,15 +34,15 @@ class KeepaService:
     def _build_validation(self, product, current_price):
         """Turn a raw Keepa product + price into our validation dict (or None)."""
         stats = product.get("stats", {}) or {}
-        avg90 = stats.get("avg90_BUY_BOX_SHIPPING")
+        avg90, window, price_type = self._best_avg_from_product(product)
         if avg90 is None:
             return None
-        # Convert from Keepa cents to euros
-        avg90 = avg90 / 100
         drop_percent = round(((avg90 - current_price) / avg90) * 100, 2) \
             if (avg90 > 0 and current_price) else 0
         return {
             "avg90": avg90,
+            "keepa_window": window,
+            "keepa_price_type": price_type,
             "drop_percent": drop_percent,
             "sales_rank": product.get("salesRankReference"),
             "monthly_sold": stats.get("salesRankDrops90"),
@@ -60,10 +63,11 @@ class KeepaService:
 
         try:
             # Check cache first
-            if asin in self.cache:
-                return self.cache[asin]
+            cache_key = ("validation", str(domain).upper(), asin, float(current_price))
+            if cache_key in self.cache:
+                return self.cache[cache_key]
 
-            products = self.api.query(asin, domain=domain, stats=90, history=False)
+            products = self.api.query(asin, domain=domain, stats=365, history=False)
             if not products:
                 logger.warning(f"[KEEPA] No product data for {asin}")
                 return None
@@ -74,7 +78,7 @@ class KeepaService:
                 return None
             result["asin"] = asin
 
-            self.cache[asin] = result
+            self.cache[cache_key] = result
             logger.info(f"[KEEPA] Validated {asin}: {result['drop_percent']}% drop from €{result['avg90']:.2f}")
             return result
 
@@ -97,18 +101,19 @@ class KeepaService:
             if not asin:
                 continue
             price_map[asin] = price
-            if asin in self.cache:
-                results[asin] = self.cache[asin]
+            ck = ("validation", str(domain).upper(), asin, float(price))
+            if ck in self.cache:
+                results[asin] = self.cache[ck]
             elif asin not in to_query:
                 to_query.append(asin)
 
         for i in range(0, len(to_query), 100):
             chunk = to_query[i:i + 100]
             try:
-                products = self.api.query(chunk, domain=domain, stats=90, history=False) or []
+                products = self.api.query(chunk, domain=domain, stats=365, history=False) or []
             except Exception as e:
                 logger.error(f"[KEEPA] Batch query error: {e}")
-                products = []
+                raise
 
             returned = set()
             for product in products:
@@ -119,13 +124,15 @@ class KeepaService:
                 result = self._build_validation(product, price_map.get(asin))
                 if result is not None:
                     result["asin"] = asin
-                self.cache[asin] = result
+                self.cache[("validation", str(domain).upper(), asin,
+                            float(price_map[asin]))] = result
                 results[asin] = result
 
             # Cache misses as None so we don't re-query them this run
             for asin in chunk:
                 if asin not in returned:
-                    self.cache[asin] = None
+                    self.cache[("validation", str(domain).upper(), asin,
+                                float(price_map[asin]))] = None
                     results[asin] = None
 
         if to_query:
@@ -146,6 +153,23 @@ class KeepaService:
             if isinstance(val, (int, float)) and val > 0 and val != -1:
                 return round(val / 100, 2)
         return None
+
+    @staticmethod
+    def _best_avg_from_product(product, price_types=KEEPA_PRICE_TYPES):
+        """Return (price, window, CSV type), preferring buy-box then NEW/FBA/
+        Amazon/FBM. This prevents a missing generic NEW series from being
+        misreported as a product with no Keepa history."""
+        stats = product.get("stats") or {}
+        for price_type in price_types:
+            price, window = KeepaService._avg_from_product(product, price_type)
+            if price is not None:
+                return price, window, price_type
+        # Some python-keepa versions also expose named scalar fields.
+        for window in (90, 180, 365, 30):
+            val = stats.get(f"avg{window}_BUY_BOX_SHIPPING")
+            if isinstance(val, (int, float)) and val > 0:
+                return round(val / 100, 2), window, 18
+        return None, None, None
 
     @staticmethod
     def _avg_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
@@ -208,7 +232,7 @@ class KeepaService:
         for asin in asins:
             if not asin:
                 continue
-            ck = ("avg90", asin, price_type)
+            ck = ("avg90", str(domain).upper(), asin, price_type)
             if ck in self.cache:
                 out[asin] = self.cache[ck]
             elif asin not in to_query:
@@ -217,10 +241,10 @@ class KeepaService:
         for i in range(0, len(to_query), 100):
             chunk = to_query[i:i + 100]
             try:
-                products = self.api.query(chunk, domain=domain, stats=90, history=False) or []
+                products = self.api.query(chunk, domain=domain, stats=365, history=False) or []
             except Exception as e:
                 logger.error(f"[KEEPA] avg batch error: {e}")
-                products = []
+                raise
 
             returned = set()
             for product in products:
@@ -228,14 +252,18 @@ class KeepaService:
                 if not asin:
                     continue
                 returned.add(asin)
-                val = self._avg_from_product(product, price_type)
-                self.cache[("avg90", asin, price_type)] = val
+                if price_type == KEEPA_PRICE_TYPE_NEW:
+                    price, window, _ = self._best_avg_from_product(product)
+                    val = (price, window)
+                else:
+                    val = self._avg_from_product(product, price_type)
+                self.cache[("avg90", str(domain).upper(), asin, price_type)] = val
                 out[asin] = val
 
             # Cache misses as None so we don't re-query them this run.
             for asin in chunk:
                 if asin not in returned:
-                    self.cache[("avg90", asin, price_type)] = (None, None)
+                    self.cache[("avg90", str(domain).upper(), asin, price_type)] = (None, None)
                     out[asin] = (None, None)
 
         if to_query:
@@ -268,7 +296,7 @@ class KeepaService:
             if not ean:
                 continue
             ean = str(ean)
-            ck = ("avg90ean", ean, price_type)
+            ck = ("avg90ean", str(domain).upper(), ean, price_type)
             if ck in self.cache:
                 out[ean] = self.cache[ck]
             elif ean not in to_query:
@@ -278,7 +306,7 @@ class KeepaService:
             chunk = to_query[i:i + 100]
             try:
                 products = self.api.query(
-                    chunk, domain=domain, stats=90, history=False,
+                    chunk, domain=domain, stats=365, history=False,
                     product_code_is_asin=False,
                 ) or []
             except Exception as e:
@@ -289,7 +317,8 @@ class KeepaService:
             # match back to the code we queried with.
             matched = {}
             for product in products:
-                avg = self._avg90_from_product(product, price_type)
+                avg = self._best_avg_from_product(product)[0] if price_type == KEEPA_PRICE_TYPE_NEW \
+                    else self._avg90_from_product(product, price_type)
                 codes = []
                 for key in ("eanList", "upcList"):
                     vals = product.get(key) or []
@@ -300,7 +329,7 @@ class KeepaService:
 
             for ean in chunk:
                 val = matched.get(ean)
-                self.cache[("avg90ean", ean, price_type)] = val
+                self.cache[("avg90ean", str(domain).upper(), ean, price_type)] = val
                 out[ean] = val
 
         if to_query:
