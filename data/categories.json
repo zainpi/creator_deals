@@ -844,5 +844,257 @@
     "priceNote": "",
     "minSavingPercent": 50,
     "intervalEuro": 50
+  },
+  {
+    "id": 95,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Baubedarf",
+    "browseNodeId": "2076091031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 96,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Baumaschinen & Zubehör",
+    "browseNodeId": "2076791031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 97,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Eisenwaren",
+    "browseNodeId": "2076451031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 98,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Elektro- & Handwerkzeuge",
+    "browseNodeId": "2076939031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 99,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Elektroinstallation",
+    "browseNodeId": "2076361031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 100,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Kamine",
+    "browseNodeId": "2076424031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 101,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Küchen- & Badinstallation",
+    "browseNodeId": "2076820031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 102,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Lagersysteme",
+    "browseNodeId": "2077689031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 103,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Malerbedarf, Werkzeuge & Tapeten",
+    "browseNodeId": "2076883031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 104,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Rasenmäher & elektrisches Gartenwerkzeug",
+    "browseNodeId": "2076882031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 105,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Sanitär",
+    "browseNodeId": "2077554031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 106,
+    "searchIndex": "Photo",
+    "keywords": "Actionkameras & Zubehör",
+    "browseNodeId": "2494677031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 107,
+    "searchIndex": "Photo",
+    "keywords": "Analoge Kameras",
+    "browseNodeId": "571902",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 108,
+    "searchIndex": "Photo",
+    "keywords": "Blitzgeräte",
+    "browseNodeId": "570264",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 109,
+    "searchIndex": "Photo",
+    "keywords": "Camcorder",
+    "browseNodeId": "273647011",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 110,
+    "searchIndex": "Photo",
+    "keywords": "Dia-Betrachter",
+    "browseNodeId": "1358976031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 111,
+    "searchIndex": "Photo",
+    "keywords": "Diaprojektoren",
+    "browseNodeId": "901968",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 112,
+    "searchIndex": "Photo",
+    "keywords": "Digitale Bilderrahmen",
+    "browseNodeId": "356122011",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 113,
+    "searchIndex": "Photo",
+    "keywords": "Digitalkameras",
+    "browseNodeId": "571862",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 114,
+    "searchIndex": "Photo",
+    "keywords": "Ferngläser, Teleskope & Optik",
+    "browseNodeId": "332036031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 115,
+    "searchIndex": "Photo",
+    "keywords": "Filmscanner",
+    "browseNodeId": "430206031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 116,
+    "searchIndex": "Photo",
+    "keywords": "Fotodrucker",
+    "browseNodeId": "430122031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 117,
+    "searchIndex": "Photo",
+    "keywords": "Objektive",
+    "browseNodeId": "570286",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 118,
+    "searchIndex": "Photo",
+    "keywords": "Stative",
+    "browseNodeId": "570028",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 119,
+    "searchIndex": "Photo",
+    "keywords": "Unterwasserfotografie",
+    "browseNodeId": "332054031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 120,
+    "searchIndex": "Photo",
+    "keywords": "Video-Projektoren",
+    "browseNodeId": "3466351",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 121,
+    "searchIndex": "Photo",
+    "keywords": "Zubehör",
+    "browseNodeId": "331964031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
+  },
+  {
+    "id": 122,
+    "searchIndex": "Photo",
+    "keywords": "Überwachungskameras",
+    "browseNodeId": "119915031",
+    "priceNote": "",
+    "minSavingPercent": 50,
+    "intervalEuro": 50
   }
 ]

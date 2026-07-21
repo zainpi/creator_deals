@@ -150,26 +150,36 @@ class KeepaService:
     @staticmethod
     def _avg_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
         """
-        Read the 90-day average price from a Keepa product exactly like
-        KeepaBot-master's dealsBrowser does:
+        Read the best available average price from a Keepa product, preferring
+        the LONGEST (most representative) window and only dropping to a
+        shorter one when longer windows have no data:
 
-            stats = product["stats"]              # requires stats=90 on query
-            avg   = stats["avg"][price_type]      # Keepa cents, price_type 1 = NEW
-            price = avg / 100                     # -> currency units
+            90d -> 180d -> 365d -> 30d
 
-        Falls back to the 30-day average (stats["avg30"], included in the same
-        response at no extra token cost) when no 90-day data exists — common
-        for recently listed products.
+        Keepa's stats object always includes avg90/avg180/avg365/avg30 in the
+        same response we already query (stats=90 on the query just selects
+        what the generic `avg` field mirrors) — there is no extra Keepa token
+        cost to preferring the longer windows. Keepa has no single "lifetime/
+        all-time average" field; 365 days is the longest fixed window it
+        offers. A true all-time average would require requesting full price
+        history (history=True) per ASIN and computing it ourselves, at extra
+        token cost per call.
 
-        Returns (price, window_days) where window_days is 90 or 30, or
-        (None, None) when neither window has data.
+        30d is now the LAST resort (previously the only fallback), reserved
+        for products too newly listed to have 90+ days of history yet.
+
+        Returns (price, window_days) where window_days is 90, 180, 365, or 30,
+        or (None, None) when no window has data.
         """
         stats = product.get("stats") or {}
-        # Prefer the explicit 90-day statistic. `avg` is retained as a
-        # compatibility fallback for Keepa responses that expose only the
-        # query-window average (we query with stats=90).
-        val = (KeepaService._stats_avg(stats, "avg90", price_type)
-               or KeepaService._stats_avg(stats, "avg", price_type))
+        for key, window in (("avg90", 90), ("avg180", 180), ("avg365", 365)):
+            val = KeepaService._stats_avg(stats, key, price_type)
+            if val is not None:
+                return val, window
+        # Compatibility fallback for Keepa responses that expose only the
+        # generic query-window average (we query with stats=90, so this
+        # mirrors avg90 when present).
+        val = KeepaService._stats_avg(stats, "avg", price_type)
         if val is not None:
             return val, 90
         val = KeepaService._stats_avg(stats, "avg30", price_type)
@@ -179,14 +189,15 @@ class KeepaService:
 
     @staticmethod
     def _avg90_from_product(product, price_type=KEEPA_PRICE_TYPE_NEW):
-        """Back-compat: value-only version of _avg_from_product (with 30d fallback)."""
+        """Back-compat: value-only version of _avg_from_product (90/180/365/30d fallback)."""
         return KeepaService._avg_from_product(product, price_type)[0]
 
     def get_avg_batch(self, asins, domain="DE", price_type=KEEPA_PRICE_TYPE_NEW):
         """
         Fetch the Keepa average price for many ASINs (<=100 per request),
-        preferring the 90-day window and falling back to 30-day when 90d
-        has no data.
+        preferring the longest available window (90d -> 180d -> 365d) and
+        only dropping to the 30-day average as a last resort when nothing
+        longer has data.
 
         Returns {asin: (avg_price, window_days) or (None, None)}. Uses/fills
         the shared self.cache keyed as ("avg90", asin, price_type) so repeated
@@ -228,7 +239,7 @@ class KeepaService:
                     out[asin] = (None, None)
 
         if to_query:
-            logger.info(f"[KEEPA] avg (90d/30d) for {len(to_query)} ASIN(s) in "
+            logger.info(f"[KEEPA] avg (90/180/365/30d) for {len(to_query)} ASIN(s) in "
                         f"{((len(to_query) - 1) // 100) + 1} request(s)")
         return out
 

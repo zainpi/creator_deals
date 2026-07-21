@@ -9,7 +9,8 @@ Method 2 = search using just the top-level category's PARENT browse node.
 Both are browse-node-only searches (no keywords, no searchIndex filter) so the
 comparison isolates the one variable that differs between them: node
 granularity. Results are posted to separate per-method Discord channels
-(discord.method_webhooks.method1 / method2), tiered by Keepa 90-day drop %
+(discord.method_webhooks.method1 / method2), tiered by Keepa drop % (90d,
+preferring longer windows — 180d/365d — over the 30d last-resort fallback)
 (tier90 / tier70 / tier50 / rest), with Keepa+AI rejects going to each
 method's trash channel, so the two can be judged head to head.
 
@@ -22,8 +23,9 @@ Per node (one row in the `method_nodes` table), one tick does:
   3. Price-aware ASIN cache check: skip anything already cached at the same
      price, BEFORE spending a Keepa call on it.
   4. Keepa validation: reject unless the price is both >= keepa_drop_percent
-     below the Keepa 90-day average (falling back to 30 days), and at least
-     min_drop_currency below that average.
+     below the best available Keepa average (90d, preferring longer windows
+     180d/365d when 90d has no data, 30d only as a last resort), and at
+     least min_drop_currency below that average.
   5. AI scoring 0-100: reject under ai.minimum_score (50 by default).
   6. Post survivors to the method-specific Discord channel.
 Then the round robin advances to the next enabled node.
@@ -137,7 +139,8 @@ class MethodScanner:
 
     @staticmethod
     def _tier_for_drop(drop):
-        """Pick the score-tier channel from the Keepa 90-day drop percent."""
+        """Pick the score-tier channel from the Keepa drop percent (whichever
+        window — 90/180/365/30d — the average came from)."""
         try:
             d = float(drop)
         except (TypeError, ValueError):
@@ -336,7 +339,9 @@ class MethodScanner:
         upsert_method_asin_cache_batch(marketplace, method, [(a, p) for _, a, p in to_process])
         bump_method_stats(marketplace, category, method, asins_scanned=len(to_process))
 
-        # ---- Keepa: 90-day avg (30-day fallback), percentage and currency gates ----
+        # ---- Keepa: best available avg (90d, preferring longer 180d/365d
+        # windows when 90d has no data; 30d only as a last resort), plus
+        # percentage and currency gates ----
         if not self.keepa:
             return []
 
@@ -355,7 +360,7 @@ class MethodScanner:
             if not avg or avg <= 0:
                 rejected += 1
                 self._send_trash(method, it, asin, price,
-                                 "No Keepa data (90d or 30d)", marketplace)
+                                 "No Keepa data (90/180/365/30d)", marketplace)
                 continue
             currency_drop = float(avg) - price
             drop = currency_drop / float(avg) * 100
