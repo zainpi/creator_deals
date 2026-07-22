@@ -1099,6 +1099,8 @@ function toggleBatchJson(id) {
 
 let methodEngineEnabled = false;
 let methodEngineStartedAtMs = null;  // client-side anchor for the uptime timer
+let methodEngineControlPending = false;
+let methodStatusRequestId = 0;
 
 function _fmtDuration(totalSec) {
     const s = Math.max(0, Math.floor(totalSec));
@@ -1180,23 +1182,47 @@ async function toggleMethodCategory(searchIndex, method, enabled) {
 }
 
 async function toggleMethodEngine() {
+    if (methodEngineControlPending) return;
     const action = methodEngineEnabled ? 'pause' : 'start';
+    const toggle = document.getElementById('method-engine-toggle');
+    methodEngineControlPending = true;
+    if (toggle) {
+        toggle.disabled = true;
+        toggle.textContent = action === 'pause' ? 'Pausing…' : 'Starting…';
+    }
     try {
-        await fetch('/api/method_test/control', {
+        const res = await fetch('/api/method_test/control', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ action }),
         });
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+            throw new Error(payload.error || `Control request failed (${res.status})`);
+        }
+        // Apply the confirmed state immediately instead of waiting for another
+        // status request (which may be an older, already-in-flight poll).
+        methodEngineEnabled = !!payload.state?.enabled;
         await refreshMethodStatus();
     } catch (e) {
         console.error('toggleMethodEngine failed:', e);
+        const statusEl = document.getElementById('method-engine-status');
+        if (statusEl) statusEl.textContent = `⚠️ Could not ${action} engine: ${e.message}`;
+    } finally {
+        methodEngineControlPending = false;
+        if (toggle) toggle.disabled = false;
+        const currentToggle = document.getElementById('method-engine-toggle');
+        if (currentToggle) currentToggle.textContent = methodEngineEnabled ? '⏸ Pause' : '▶ Start';
     }
 }
 
 async function refreshMethodStatus() {
+    const requestId = ++methodStatusRequestId;
     try {
         const res = await fetch('/api/method_test/status');
         const s = await res.json();
+        // A slower old poll must not overwrite a newer control/status result.
+        if (requestId !== methodStatusRequestId) return;
         const engine = s.engine || {};
         methodEngineEnabled = !!engine.enabled;
 

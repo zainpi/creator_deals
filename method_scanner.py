@@ -210,6 +210,16 @@ class MethodScanner:
 
     # --------------------------------------------------------------- scan tick
 
+    @staticmethod
+    def _engine_enabled():
+        """Read the shared switch at operation boundaries.
+
+        A scan tick includes several slow external calls. Checking only once at
+        the start meant a paused engine could continue scoring and posting the
+        rest of an in-flight batch for minutes.
+        """
+        return bool(get_method_engine_state().get("enabled"))
+
     def run_once(self):
         """Execute one tick against the next enabled node in the round robin.
         Returns the node processed (for logging), or None if idle/paused."""
@@ -286,6 +296,9 @@ class MethodScanner:
         if pages_scanned:
             bump_method_stats(marketplace, category, method, creators_api_calls=pages_scanned)
 
+        if not self._engine_enabled():
+            return
+
         self._advance_price_cursor(marketplace, category, method, browse_node_id, min_price, items)
 
         if not items:
@@ -354,6 +367,9 @@ class MethodScanner:
         if not self.keepa:
             return []
 
+        if not self._engine_enabled():
+            return []
+
         asins = [a for _, a, _ in to_process]
         try:
             avg_map = self.keepa.get_avg_batch(asins, domain=marketplace) or {}
@@ -363,6 +379,9 @@ class MethodScanner:
             logger.error(f"[METHOD] Keepa batch error: {e}")
             return []
 
+        if not self._engine_enabled():
+            return []
+
         # Only suppress an unchanged price after Keepa answered successfully.
         # A token/network/API failure must remain eligible for the next scan.
         upsert_method_asin_cache_batch(marketplace, method,
@@ -370,6 +389,8 @@ class MethodScanner:
 
         survivors, rejected = [], 0
         for it, asin, price in to_process:
+            if not self._engine_enabled():
+                break
             avg, window = avg_map.get(asin) or (None, None)
             if not avg or avg <= 0:
                 rejected += 1
@@ -432,6 +453,8 @@ class MethodScanner:
         tier_rejected = 0
         posted = 0
         for it, asin, price in survivors:
+            if not self._engine_enabled():
+                break
             # Below the lowest % tier (50) -> trash, not the rest channel.
             # Checked BEFORE AI scoring so no AI call is spent on them.
             tier = self._tier_for_drop(it.get("_keepa_drop"))
@@ -456,6 +479,10 @@ class MethodScanner:
                     )
             except Exception as e:
                 logger.warning(f"[METHOD] AI estimate error for {asin}: {e}")
+
+            # Pause may have been pressed while the AI request was in flight.
+            if not self._engine_enabled():
+                break
 
             # All math/scoring is deterministic (deal_scoring.py); the AI only
             # supplied the price ranges above.

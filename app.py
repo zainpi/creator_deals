@@ -736,7 +736,8 @@ def api_method_test_control():
                 started_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
             )
     elif action in ("pause", "stop"):
-        update_method_engine_state(enabled=0, started_at=None)
+        update_method_engine_state(enabled=0, running=0, started_at=None,
+                                   current_target="Paused")
     else:
         return jsonify({"success": False, "error": "action must be 'start'/'resume' or 'pause'/'stop'"}), 400
     return jsonify({"success": True, "state": get_method_engine_state()})
