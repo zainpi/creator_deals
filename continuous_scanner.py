@@ -47,6 +47,10 @@ class ContinuousScanner:
 
         self.marketplaces = [str(m).upper() for m in
                              (scanner_cfg.get("marketplaces") or ["DE", "GB", "FR", "ES", "IT"])]
+        self.credential_marketplaces = [
+            str(m).upper() for m in
+            (scanner_cfg.get("credential_marketplaces") or ["DE"])
+        ] or ["DE"]
         self.sort_rotation = scanner_cfg.get("sort_rotation") or \
             ["Featured", "Price:LowToHigh", "NewestArrivals"]
         self.pages_to_search = max(1, int(scanner_cfg.get("pages_to_search", 5)))
@@ -69,7 +73,16 @@ class ContinuousScanner:
 
         set_blocked_categories(config)
 
-        self.searcher = CreatorsSearch(config)
+        # Rotate every configured credential pool against the German catalog.
+        # Separate instances preserve independent OAuth token caches and rate
+        # windows; product marketplace, links, and Keepa domain remain DE.
+        self.searchers = {}
+        for source in self.credential_marketplaces:
+            searcher = CreatorsSearch(config)
+            searcher.marketplace = "DE"
+            searcher._load_credentials(source, allow_generic=(source == "DE"))
+            self.searchers[source] = searcher
+        self.searcher = self.searchers[self.credential_marketplaces[0]]
 
         # Keepa is the heart of the gate; create it only if enabled + key present.
         self.keepa = None
@@ -164,17 +177,20 @@ class ContinuousScanner:
         tick = int(state.get("tick", 0) or 0)
         target = self._decode_tick(tick)
         mk = target["marketplace"]
+        credential_source = self.credential_marketplaces[
+            tick % len(self.credential_marketplaces)
+        ]
+        self.searcher = self.searchers[credential_source]
         mk_domain = "GB" if mk in ("GB", "UK") else mk
-        human_target = f'{mk} · {target["search_index"]} · "{target["keyword"]}" · p{target["page"]} · {target["sort_by"]}'
+        human_target = (
+            f'{mk} · {target["search_index"]} · "{target["keyword"]}" · '
+            f'p{target["page"]} · {target["sort_by"]} · credentials {credential_source}'
+        )
         update_scanner_state(running=1, last_heartbeat=now, current_target=human_target, last_error=None)
         logger.info(f"[SCANNER] tick {tick}: {human_target}")
 
         # 1 search call (rate-limited inside search_items)
-        self.searcher.marketplace = mk
-        try:
-            self.searcher._load_credentials()
-        except Exception:
-            pass
+        self.searcher.marketplace = "DE"
         try:
             items = self.searcher.search_items(
                 page=target["page"],
@@ -265,7 +281,8 @@ class ContinuousScanner:
                     continue
 
             product = self._build_product(norm, asin, price, listing, category, kd,
-                                          rating_map.get(seller_id) if self.keepa_active else 0)
+                                          rating_map.get(seller_id) if self.keepa_active else 0,
+                                          search_category=target["search_index"])
             try:
                 insert_product(product)
                 kept_this_tick += 1
@@ -295,7 +312,8 @@ class ContinuousScanner:
         logger.info(msg)
         return target
 
-    def _build_product(self, norm, asin, price, listing, category, kd, seller_rating):
+    def _build_product(self, norm, asin, price, listing, category, kd, seller_rating,
+                       search_category=None):
         seller_data = DealFilters.extract_seller(listing)
         title = DealFilters.extract_title(norm)
 
@@ -320,6 +338,7 @@ class ContinuousScanner:
             "current_price": price,
             "savings_percent": DealFilters.extract_savings_percent(listing),
             "category": category,
+            "search_category": search_category or category,
             "seller_name": seller_data.get("seller_name"),
             "seller_id": seller_data.get("seller_id"),
             "seller_rating": seller_rating if seller_rating is not None else (0 if not self.keepa_active else None),

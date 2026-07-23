@@ -249,6 +249,11 @@ class DealScheduler:
             "current_price": price,
             "savings_percent": savings_val,
             "category": category,
+            "search_category": (
+                self.config.get("amazon", {}).get("search_index")
+                or self.config.get("amazon", {}).get("searchIndex")
+                or category
+            ),
             "seller_name": seller_data.get("seller_name"),
             "seller_id": seller_data.get("seller_id"),
             "seller_rating": seller_rating,

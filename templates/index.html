@@ -41,13 +41,9 @@
 
         <div class="search-row search-row-bottom">
             <div class="filter-group">
-                <label>Marketplaces</label>
+                <label>Marketplace</label>
                 <div class="marketplace-checks">
                     <label><input type="checkbox" name="marketplace" value="DE" checked> 🇩🇪 DE</label>
-                    <label><input type="checkbox" name="marketplace" value="GB"> 🇬🇧 GB</label>
-                    <label><input type="checkbox" name="marketplace" value="FR"> 🇫🇷 FR</label>
-                    <label><input type="checkbox" name="marketplace" value="ES"> 🇪🇸 ES</label>
-                    <label><input type="checkbox" name="marketplace" value="IT"> 🇮🇹 IT</label>
                 </div>
             </div>
             <div class="filter-group">
@@ -138,11 +134,7 @@
                 <div class="filter-group">
                     <label>Marketplace</label>
                     <select id="test_marketplace">
-                        <option value="GB">🇬🇧 UK</option>
                         <option value="DE">🇩🇪 Germany</option>
-                        <option value="FR">🇫🇷 France</option>
-                        <option value="ES">🇪🇸 Spain</option>
-                        <option value="IT">🇮🇹 Italy</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -217,19 +209,13 @@
                 <p style="margin:4px 0 0;color:#9aa;font-size:0.85em;">Every field is optional and editable. Nothing is hard-coded. Leave keywords empty to search by browse node only.</p>
             </div>
 
-            <!-- Pick a Category -> autofill Search Index, or jump straight to Method 2 (parent node) -->
+            <!-- Pick a category to autofill the editable search controls. -->
             <div class="test-filter-row">
                 <div class="filter-group" style="flex:2;">
                     <label title="Autofills Search Index below from the 26-category table">Pick a Category</label>
                     <select id="cat_top_category" onchange="applyTopCategory()">
                         <option value="">— choose a category —</option>
                     </select>
-                </div>
-                <div class="filter-group" style="align-self:flex-end;">
-                    <button class="btn" id="cat-method2-btn" onclick="applyMethod2()" disabled
-                            title="Method 2: search the parent category node directly — clears Search Index/Keywords, sets Browse Node ID, min saving 0, FBA only ON">
-                        🅱️ Use Method 2 (parent node)
-                    </button>
                 </div>
             </div>
 
@@ -238,10 +224,6 @@
                     <label>Marketplace</label>
                     <select id="cat_marketplace">
                         <option value="DE">🇩🇪 Germany</option>
-                        <option value="GB">🇬🇧 UK</option>
-                        <option value="FR">🇫🇷 France</option>
-                        <option value="ES">🇪🇸 Spain</option>
-                        <option value="IT">🇮🇹 Italy</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -359,10 +341,6 @@
                     <label>Marketplace</label>
                     <select id="batch_marketplace">
                         <option value="DE">🇩🇪 Germany</option>
-                        <option value="GB">🇬🇧 UK</option>
-                        <option value="FR">🇫🇷 France</option>
-                        <option value="ES">🇪🇸 Spain</option>
-                        <option value="IT">🇮🇹 Italy</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -424,20 +402,19 @@
         </div>
     </div>
 
-    <!-- ============ METHOD 1 vs METHOD 2 (LIVE A/B ENGINE) ============ -->
+    <!-- ============ LIVE CATEGORY SCANNER ============ -->
     <div class="test-section" id="method-test-section">
-        <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleMethodPanel()" title="Pick a category, run Method 1 (subcategory nodes) and/or Method 2 (parent node) continuously, and compare results posted to their own Discord channels">
-            <span>🥊 Method 1 vs Method 2 (Live A/B Test)</span>
+        <h2 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleMethodPanel()" title="Pick categories to scan continuously by their subcategory browse nodes">
+            <span>🔁 Live Category Scanner</span>
             <span id="method-toggle-indicator" style="font-size:0.8em;">▾</span>
         </h2>
         <div id="method-controls" class="test-controls" style="display:none;">
             <div class="test-controls-header">
                 <h3>Pick a Category → runs continuously in the background worker</h3>
                 <p style="margin:4px 0 0;color:#9aa;font-size:0.85em;">
-                    Method 1 searches a category's subcategory browse nodes; Method 2 searches just the parent
-                    category node. Both sweep €0→€450 in ~100-ASIN batches, skip cached/unchanged ASINs before
+                    Searches each category's subcategory browse nodes. It sweeps €0→€450 in ~100-ASIN batches, skips cached/unchanged ASINs before
                     spending a Keepa call, keep only items ≥25% below their Keepa 90-day average, AI-score the
-                    rest 0–100 (post if ≥50), and post survivors to the method's own Discord channel.
+                    rest 0–100 (post if ≥50), and post survivors to Discord.
                 </p>
             </div>
 
@@ -449,7 +426,7 @@
 
             <div class="stats-grid" id="method-budget-summary" style="margin-bottom:12px;">
                 <div class="stat-card"><div class="stat-label">Calls Today</div><div class="stat-value" id="method_calls_today">0</div></div>
-                <div class="stat-card"><div class="stat-label">Daily Budget</div><div class="stat-value" id="method_daily_budget">8640</div></div>
+                <div class="stat-card"><div class="stat-label">Daily Budget</div><div class="stat-value" id="method_daily_budget">37440</div></div>
                 <div class="stat-card"><div class="stat-label">% Used</div><div class="stat-value" id="method_pct_used">0%</div></div>
                 <div class="stat-card" title="Even split of the daily budget across currently-enabled category/method targets"><div class="stat-label">Theoretical / Target</div><div class="stat-value" id="method_theoretical">0</div></div>
             </div>
@@ -459,9 +436,6 @@
                     <label title="Nodes are seeded per-marketplace — switch here to view/toggle GB, FR, or ES categories independently of DE">Marketplace</label>
                     <select id="method_marketplace" onchange="loadMethodCategories()">
                         <option value="DE">🇩🇪 Germany</option>
-                        <option value="GB">🇬🇧 UK</option>
-                        <option value="FR">🇫🇷 France</option>
-                        <option value="ES">🇪🇸 Spain</option>
                     </select>
                 </div>
             </div>
@@ -470,27 +444,19 @@
             <div style="overflow-x:auto;">
                 <table class="batch-table" id="method-categories-table">
                     <thead>
-                        <tr><th>Category</th><th>Method 1 (subcategory nodes)</th><th>Method 2 (parent node)</th></tr>
+                        <tr><th>Category</th><th>Subcategory browse nodes</th></tr>
                     </thead>
                     <tbody id="method-categories-tbody">
-                        <tr><td colspan="3">Loading…</td></tr>
+                        <tr><td colspan="2">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
 
             <h4 style="margin:20px 0 8px;">Items</h4>
-            <div class="method-results-grid" aria-live="polite">
+            <div class="method-results-grid method-results-grid-single" aria-live="polite">
                 <section class="method-results-column">
-                    <h5>Items Method 1 <span id="method1-count" class="method-count">0</span></h5>
+                    <h5>Scanner Items <span id="method1-count" class="method-count">0</span></h5>
                     <div id="method1-items" class="method-item-list"><p class="method-empty">No items yet.</p></div>
-                </section>
-                <section class="method-results-column">
-                    <h5>Items Method 2 <span id="method2-count" class="method-count">0</span></h5>
-                    <div id="method2-items" class="method-item-list"><p class="method-empty">No items yet.</p></div>
-                </section>
-                <section class="method-results-column method-results-duplicates">
-                    <h5>Duplicate Items <span id="duplicates-count" class="method-count">0</span></h5>
-                    <div id="duplicates-items" class="method-item-list"><p class="method-empty">No duplicates yet.</p></div>
                 </section>
             </div>
         </div>

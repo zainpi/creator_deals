@@ -107,8 +107,7 @@ def api_search():
         return jsonify({"success": False, "error": "user_id required"}), 400
 
     keywords = str(data.get("keywords", "")).strip()
-    raw_mks = data.get("marketplaces", ["DE"])
-    marketplaces = [str(m).upper() for m in (raw_mks if isinstance(raw_mks, list) else [raw_mks])] or ["DE"]
+    marketplaces = ["DE"]
     pages = max(1, min(int(data.get("pages", 1)), 20))
     min_saving = int(data.get("min_saving", config.get("amazon", {}).get("min_saving_percent", 50)))
     max_price = float(data.get("max_price", config.get("amazon", {}).get("max_price", 450)))
@@ -254,7 +253,7 @@ def api_test():
     try:
         params = request.json
         test_config = dict(config)
-        test_config["amazon"]["marketplace"] = params.get("marketplace", "GB")
+        test_config["amazon"]["marketplace"] = "DE"
         test_config["amazon"]["min_saving_percent"] = params.get("min_saving", 50)
         test_config["amazon"]["max_price"] = params.get("max_price", 450)
         test_config["amazon"]["keywords"] = params.get("keywords", test_config.get("amazon", {}).get("keywords", ""))
@@ -393,11 +392,11 @@ def _load_categories():
 
 
 def _creators_for_marketplace(marketplace):
-    """Build a CreatorsSearch bound to the requested marketplace."""
+    """Build a CreatorsSearch bound to Germany."""
     from creators_search import CreatorsSearch
     diag_config = dict(config)
     diag_config["amazon"] = dict(config.get("amazon", {}))
-    diag_config["amazon"]["marketplace"] = str(marketplace or "DE").upper()
+    diag_config["amazon"]["marketplace"] = "DE"
     return CreatorsSearch(diag_config)
 
 
@@ -432,7 +431,7 @@ def _run_diagnostic(cs, params):
 
     use_keepa = bool(params.get("use_keepa"))
     keepa = _build_keepa_service() if use_keepa else None
-    domain = str(params.get("marketplace") or "DE").upper()
+    domain = "DE"
 
     # deliveryFlags: accept an explicit list, or the `use_fba` toggle shortcut.
     # None => fall back to config default (unchanged behaviour when toggle is off).
@@ -467,7 +466,7 @@ def api_categories():
 @app.route("/api/topcategories", methods=["GET"])
 def api_topcategories():
     """Serve the top-level 'Pick a Category' table (searchIndex, German
-    displayName, parentBrowseNodeId for Method 2 — null where not yet known)."""
+    displayName, and any available parent browse-node metadata)."""
     return jsonify(_load_topcategories())
 
 
@@ -477,9 +476,10 @@ def api_raw_search():
     Single category-ID diagnostic search. Returns the exact request payload the
     Creators API received plus the raw response and normalized items. No Keepa/AI.
     """
-    params = request.json or {}
+    params = dict(request.json or {})
+    params["marketplace"] = "DE"
     try:
-        cs = _creators_for_marketplace(params.get("marketplace", "DE"))
+        cs = _creators_for_marketplace("DE")
         result = _run_diagnostic(cs, params)
         result["api_calls"] = cs.api_calls
         return jsonify(result)
@@ -506,7 +506,8 @@ def api_batch_test():
       category_ids      — optional list of category ids to run; omit/empty = all
       use_category_saving — bool (default True): use each row's minSavingPercent
     """
-    params = request.json or {}
+    params = dict(request.json or {})
+    params["marketplace"] = "DE"
 
     # Don't start a second batch while one is already running.
     existing = get_batch_job()
@@ -538,7 +539,7 @@ def _run_batch_job(params):
         use_cat_saving = bool(params.get("use_category_saving", True))
         override_saving = params.get("min_saving")
 
-        marketplace = params.get("marketplace", "DE")
+        marketplace = "DE"
         cs = _creators_for_marketplace(marketplace)
 
         set_batch_job(total=len(cats), completed=0)
@@ -630,7 +631,7 @@ def api_batch_status():
     return jsonify(job)
 
 
-# ==================== Method 1 vs Method 2 comparison engine ====================
+# ==================== Live category scanner ====================
 #
 # Controls + status for method_scanner.py, which runs in the worker process
 # (see worker.py). This app process only reads/writes DB state — it never runs
@@ -650,13 +651,11 @@ def _load_topcategories():
 
 @app.route("/api/method_test/categories")
 def api_method_test_categories():
-    """Every top-level category, with which methods currently have browse-node
-    data (seeded into method_nodes by the worker on startup) and whether each
-    is switched on in the round robin — powers the 'Pick a Category' picker.
+    """Every top-level category with its subcategory browse-node count and
+    whether it is switched on in the round robin.
     Nodes exist per-marketplace now, so this reports on ONE marketplace at a
     time: pass ?marketplace=GB (defaults to method_test.marketplace)."""
-    marketplace = str(request.args.get("marketplace")
-                       or config.get("method_test", {}).get("marketplace", "DE")).upper()
+    marketplace = "DE"
     tops = {t.get("searchIndex"): t for t in _load_topcategories() if t.get("searchIndex")}
     nodes = get_method_nodes(marketplace=marketplace)
 
@@ -673,38 +672,20 @@ def api_method_test_categories():
     for idx in sorted(all_categories):
         top = tops.get(idx, {})
         m1 = groups.get((idx, 1))
-        m2 = groups.get((idx, 2))
         out.append({
             "searchIndex": idx,
             "displayName": top.get("displayName") or idx,
             "method1": {"available": bool(m1), "nodeCount": (m1 or {}).get("node_count", 0),
                        "enabled": bool(m1 and m1["enabled_count"] == m1["node_count"] and m1["node_count"] > 0)},
-            "method2": {"available": bool(m2), "nodeCount": (m2 or {}).get("node_count", 0),
-                       "enabled": bool(m2 and m2["enabled_count"] == m2["node_count"] and m2["node_count"] > 0)},
         })
     return jsonify(out)
 
 
 @app.route("/api/method_test/items")
 def api_method_test_items():
-    """Return the two method feeds plus their ASIN intersection for the A/B UI."""
+    """Return the live category scanner feed."""
     method1 = get_products_for_user(METHOD_FEED_USER_IDS[1])
-    method2 = get_products_for_user(METHOD_FEED_USER_IDS[2])
-
-    method2_by_asin = {item.get("asin"): item for item in method2 if item.get("asin")}
-    duplicates = []
-    for item in method1:
-        asin = item.get("asin")
-        if asin and asin in method2_by_asin:
-            duplicate = dict(item)
-            duplicate["method2_last_seen"] = method2_by_asin[asin].get("last_seen")
-            duplicates.append(duplicate)
-
-    return jsonify({
-        "method1": method1,
-        "method2": method2,
-        "duplicates": duplicates,
-    })
+    return jsonify({"method1": method1})
 
 
 @app.route("/api/method_test/toggle", methods=["POST"])
@@ -714,9 +695,9 @@ def api_method_test_toggle():
     category = str(data.get("category") or "").strip()
     method = data.get("method")
     enabled = bool(data.get("enabled"))
-    marketplace = str(data.get("marketplace") or config.get("method_test", {}).get("marketplace", "DE")).upper()
-    if not category or method not in (1, 2):
-        return jsonify({"success": False, "error": "category and method (1 or 2) required"}), 400
+    marketplace = "DE"
+    if not category or method != 1:
+        return jsonify({"success": False, "error": "category and method 1 required"}), 400
     set_method_nodes_enabled(marketplace, category, int(method), enabled)
     return jsonify({"success": True})
 
@@ -724,23 +705,30 @@ def api_method_test_toggle():
 @app.route("/api/method_test/control", methods=["POST"])
 def api_method_test_control():
     action = (request.json or {}).get("action", "")
-    if action == "start" or action == "resume":
-        state = get_method_engine_state()
-        # Stamp the uptime timer only on the OFF -> ON transition, so a
-        # redundant 'resume' while already running doesn't reset it.
-        if state.get("enabled"):
-            update_method_engine_state(enabled=1)
+    try:
+        if action == "start" or action == "resume":
+            state = get_method_engine_state()
+            # Stamp the uptime timer only on the OFF -> ON transition, so a
+            # redundant 'resume' while already running doesn't reset it.
+            if state.get("enabled"):
+                update_method_engine_state(enabled=1)
+            else:
+                update_method_engine_state(
+                    enabled=1,
+                    started_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+                )
+        elif action in ("pause", "stop"):
+            update_method_engine_state(enabled=0, running=0, started_at=None,
+                                       current_target="Paused")
         else:
-            update_method_engine_state(
-                enabled=1,
-                started_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
-            )
-    elif action in ("pause", "stop"):
-        update_method_engine_state(enabled=0, running=0, started_at=None,
-                                   current_target="Paused")
-    else:
-        return jsonify({"success": False, "error": "action must be 'start'/'resume' or 'pause'/'stop'"}), 400
-    return jsonify({"success": True, "state": get_method_engine_state()})
+            return jsonify({"success": False, "error": "action must be 'start'/'resume' or 'pause'/'stop'"}), 400
+        return jsonify({"success": True, "state": get_method_engine_state()})
+    except Exception as e:
+        logger.exception(f"[APP] Method engine control failed ({action}): {e}")
+        return jsonify({
+            "success": False,
+            "error": "Engine control failed. Check the server log for details.",
+        }), 500
 
 
 @app.route("/api/method_test/status")
@@ -749,10 +737,16 @@ def api_method_test_status():
     daily_budget = int(mt_cfg.get("daily_budget_requests", 8640))
 
     stats_rows = get_method_stats()
-    stats_by_key = {(r["category"], int(r["method"])): r for r in stats_rows}
+    stats_by_key = {
+        (r["category"], int(r["method"]), r["marketplace"]): r
+        for r in stats_rows
+    }
     calls_today = sum(r.get("creators_api_calls") or 0 for r in stats_rows)
 
-    nodes = get_method_nodes()
+    nodes = [
+        n for n in get_method_nodes(marketplace="DE")
+        if int(n["method"]) == 1
+    ]
     groups = {}
     for n in nodes:
         # marketplace is part of the key: nodes now exist per-marketplace, so

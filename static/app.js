@@ -720,7 +720,7 @@ async function loadCategoryTable() {
     await loadTopCategoryTable();
 }
 
-// ============= PICK A CATEGORY (Method 1 / Method 2 quick-fill) =============
+// ============= PICK A CATEGORY (manual quick-fill) =============
 
 let TOP_CATEGORY_TABLE = [];
 
@@ -733,7 +733,7 @@ async function loadTopCategoryTable() {
         TOP_CATEGORY_TABLE.forEach(t => {
             const o = document.createElement('option');
             o.value = t.searchIndex;
-            o.textContent = `${t.displayName} (${t.searchIndex})${t.parentBrowseNodeId ? '' : ' — no parent node yet'}`;
+            o.textContent = `${t.displayName} (${t.searchIndex})`;
             sel.appendChild(o);
         });
     } catch (e) {
@@ -743,28 +743,9 @@ async function loadTopCategoryTable() {
 
 function applyTopCategory() {
     const idx = document.getElementById('cat_top_category').value;
-    const btn = document.getElementById('cat-method2-btn');
     const t = TOP_CATEGORY_TABLE.find(x => x.searchIndex === idx);
-    if (!idx || !t) {
-        if (btn) btn.disabled = true;
-        return;
-    }
+    if (!idx || !t) return;
     document.getElementById('cat_search_index').value = t.searchIndex;
-    if (btn) btn.disabled = !t.parentBrowseNodeId;
-}
-
-function applyMethod2() {
-    const idx = document.getElementById('cat_top_category').value;
-    const t = TOP_CATEGORY_TABLE.find(x => x.searchIndex === idx);
-    if (!t || !t.parentBrowseNodeId) return;
-    // Method 2 per the board: only the parent browse node — no Search Index,
-    // no Keywords, no min saving, FBA on.
-    document.getElementById('cat_search_index').value = '';
-    document.getElementById('cat_keywords').value = '';
-    document.getElementById('cat_browse_node').value = t.parentBrowseNodeId;
-    document.getElementById('cat_min_saving').value = 0;
-    const fba = document.getElementById('cat_use_fba');
-    if (fba) fba.checked = true;
 }
 
 function loadCatPreset() {
@@ -1142,11 +1123,11 @@ async function loadMethodCategories() {
         const res = await fetch(`/api/method_test/categories?marketplace=${encodeURIComponent(marketplace)}`);
         const cats = (await res.json()) || [];
         if (!cats.length) {
-            tbody.innerHTML = '<tr><td colspan="3">No categories seeded yet — start the worker process once to seed them.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2">No categories seeded yet — start the worker process once to seed them.</td></tr>';
             return;
         }
         tbody.innerHTML = cats.map(c => {
-            const m1 = c.method1, m2 = c.method2;
+            const m1 = c.method1;
             const cell = (m, method) => m.available
                 ? `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                        <input type="checkbox" ${m.enabled ? 'checked' : ''}
@@ -1158,12 +1139,11 @@ async function loadMethodCategories() {
                 <tr>
                     <td>${_esc(c.displayName)} <span style="color:#9aa;">(${_esc(c.searchIndex)})</span></td>
                     <td>${cell(m1, 1)}</td>
-                    <td>${cell(m2, 2)}</td>
                 </tr>`;
         }).join('');
     } catch (e) {
         console.error('loadMethodCategories failed:', e);
-        tbody.innerHTML = '<tr><td colspan="3">Failed to load categories.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="2">Failed to load categories.</td></tr>';
     }
 }
 
@@ -1196,7 +1176,13 @@ async function toggleMethodEngine() {
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ action }),
         });
-        const payload = await res.json();
+        const raw = await res.text();
+        let payload;
+        try {
+            payload = JSON.parse(raw);
+        } catch {
+            throw new Error(`Server returned a non-JSON response (${res.status})`);
+        }
         if (!res.ok || !payload.success) {
             throw new Error(payload.error || `Control request failed (${res.status})`);
         }
@@ -1264,11 +1250,9 @@ async function refreshMethodStatus() {
 
 async function refreshMethodItems() {
     const res = await fetch('/api/method_test/items');
-    if (!res.ok) throw new Error(`Unable to load A/B items (${res.status})`);
+    if (!res.ok) throw new Error(`Unable to load scanner items (${res.status})`);
     const data = await res.json();
-    renderMethodItems('method1', data.method1 || [], 'No Method 1 items yet.');
-    renderMethodItems('method2', data.method2 || [], 'No Method 2 items yet.');
-    renderMethodItems('duplicates', data.duplicates || [], 'No duplicate items yet.');
+    renderMethodItems('method1', data.method1 || [], 'No scanner items yet.');
 }
 
 function renderMethodItems(column, items, emptyText) {
@@ -1341,5 +1325,4 @@ window.toggleMethodPanel    = toggleMethodPanel;
 window.toggleMethodCategory = toggleMethodCategory;
 window.toggleMethodEngine   = toggleMethodEngine;
 window.applyTopCategory     = applyTopCategory;
-window.applyMethod2         = applyMethod2;
 window.toggleBatchJson = toggleBatchJson;

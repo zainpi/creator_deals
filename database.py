@@ -72,6 +72,14 @@ def _migrate(conn):
                 f"ALTER TABLE IF EXISTS discovered_products "
                 f"ADD COLUMN IF NOT EXISTS {col} REAL"
             )
+        c.execute(
+            "ALTER TABLE IF EXISTS discovered_products "
+            "ADD COLUMN IF NOT EXISTS search_category TEXT"
+        )
+        c.execute(
+            "ALTER TABLE IF EXISTS method_engine_state "
+            "ADD COLUMN IF NOT EXISTS started_at TEXT"
+        )
         conn.commit()
         return
 
@@ -87,6 +95,8 @@ def _migrate(conn):
             for col in ("seller_rating",) + _SCORING_COLUMNS:
                 if col not in cols:
                     c.execute(f"ALTER TABLE discovered_products ADD COLUMN {col} REAL")
+            if "search_category" not in cols:
+                c.execute("ALTER TABLE discovered_products ADD COLUMN search_category TEXT")
             conn.commit()
 
     # ---- user_preferences: backfill any columns added after the table first shipped ----
@@ -124,6 +134,7 @@ def init_db():
             current_price REAL,
             savings_percent REAL,
             category TEXT,
+            search_category TEXT,
             seller_name TEXT,
             seller_id TEXT,
             image TEXT,
@@ -319,10 +330,12 @@ def init_db():
     ''')
     c.execute("INSERT INTO method_engine_state (id) VALUES (1) ON CONFLICT DO NOTHING")
 
-    # Migration: add started_at (engine uptime timer) to pre-existing DBs.
-    c.execute("PRAGMA table_info('method_engine_state')")
-    if "started_at" not in {row[1] for row in c.fetchall()}:
-        c.execute("ALTER TABLE method_engine_state ADD COLUMN started_at TEXT")
+    # SQLite migration: Postgres is handled in _migrate() with
+    # ADD COLUMN IF NOT EXISTS. PRAGMA is not valid Postgres SQL.
+    if not IS_POSTGRES:
+        c.execute("PRAGMA table_info('method_engine_state')")
+        if "started_at" not in {row[1] for row in c.fetchall()}:
+            c.execute("ALTER TABLE method_engine_state ADD COLUMN started_at TEXT")
 
     conn.commit()
     conn.close()
@@ -346,18 +359,19 @@ def insert_product(product):
     c.execute(_q('''
         INSERT INTO discovered_products (
             user_id, asin, title, marketplace, current_price, savings_percent,
-            category, seller_name, seller_id, image, keepa_avg_90, keepa_drop_percent,
+            category, search_category, seller_name, seller_id, image, keepa_avg_90, keepa_drop_percent,
             ai_score, ai_reason,
             retail_low, retail_high, resale_low, resale_high, resale_mid,
             estimated_profit, discount_pct, resell_score, buying_score, overall_score,
             page_found, seller_rating, first_seen, last_seen, posted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, asin) DO UPDATE SET
             title=EXCLUDED.title,
             marketplace=EXCLUDED.marketplace,
             current_price=EXCLUDED.current_price,
             savings_percent=EXCLUDED.savings_percent,
             category=EXCLUDED.category,
+            search_category=EXCLUDED.search_category,
             seller_name=EXCLUDED.seller_name,
             seller_id=EXCLUDED.seller_id,
             image=EXCLUDED.image,
@@ -387,6 +401,7 @@ def insert_product(product):
         product.get("current_price"),
         product.get("savings_percent"),
         product.get("category"),
+        product.get("search_category"),
         product.get("seller_name"),
         product.get("seller_id"),
         product.get("image"),
@@ -693,6 +708,68 @@ def seed_method_node(marketplace, category, method, browse_node_id, label=None, 
         '''), (marketplace, category, int(method), str(browse_node_id), label, keywords,
               int(enabled), datetime.utcnow().isoformat()))
         conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_stale_method_nodes(marketplace, method, valid_nodes):
+    """Remove seeded nodes that are no longer present in the source data.
+
+    ``valid_nodes`` is an iterable of ``(category, browse_node_id)`` pairs.
+    An empty collection is ignored so a missing or malformed data file cannot
+    accidentally wipe the scanner configuration.
+    """
+    valid = {(str(category), str(node_id)) for category, node_id in valid_nodes}
+    if not valid:
+        return 0
+
+    conn = _connect()
+    c = conn.cursor()
+    deleted = 0
+    try:
+        c.execute(
+            _q("SELECT category, browse_node_id FROM method_nodes WHERE marketplace=? AND method=?"),
+            (marketplace, int(method)),
+        )
+        stale = [
+            (category, str(node_id))
+            for category, node_id in c.fetchall()
+            if (str(category), str(node_id)) not in valid
+        ]
+        for category, node_id in stale:
+            c.execute(
+                _q(
+                    "DELETE FROM method_nodes "
+                    "WHERE marketplace=? AND category=? AND method=? AND browse_node_id=?"
+                ),
+                (marketplace, category, int(method), node_id),
+            )
+        deleted = len(stale)
+        conn.commit()
+    finally:
+        conn.close()
+    return deleted
+
+
+def delete_method_nodes_outside_marketplaces(allowed_marketplaces):
+    """Remove scanner targets for marketplaces that are no longer in scope."""
+    allowed = {str(m).upper() for m in allowed_marketplaces if str(m).strip()}
+    if not allowed:
+        return 0
+    conn = _connect()
+    c = conn.cursor()
+    try:
+        placeholders = ",".join("?" for _ in allowed)
+        c.execute(
+            _q(
+                f"DELETE FROM method_nodes "
+                f"WHERE marketplace NOT IN ({placeholders})"
+            ),
+            tuple(sorted(allowed)),
+        )
+        deleted = max(0, int(c.rowcount or 0))
+        conn.commit()
+        return deleted
     finally:
         conn.close()
 

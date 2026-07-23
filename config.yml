@@ -4,14 +4,7 @@
 
 # Per‑marketplace Amazon Creators credentials
 affiliate_ids:
-  FR: pulsedeals0a-21
   DE: pulse08-21
-  IT: pulse0d8b-21
-  ES: pulsedeals07-21
-  GB: pulsedeals04-21
-  UK: pulsedeals04-21
-  NL: pulse046-21
-  BE: pulse0dc-21
 
 # AI role — the model ONLY identifies the product and estimates price ranges
 # (retail_low/high, resale_low/high). All math/scoring is done deterministically
@@ -126,7 +119,8 @@ scanner:
   scan_interval_seconds: 15           # delay between scan ticks (worker loop)
   cooldown_hours: 48                  # don't re-Keepa the same ASIN within this window
   min_api_saving_percent: 20          # only pull listings already >= this % off list price
-  marketplaces: [DE, GB, FR, ES, IT]  # marketplaces the continuous scanner rotates through
+  marketplaces: [DE]                  # German products only
+  credential_marketplaces: [DE, GB, FR, ES, IT] # rotate all five pools against amazon.de
   sort_rotation: [Featured, "Price:LowToHigh", NewestArrivals]
 
 # Category-aware pricing brain for the continuous scanner.
@@ -152,16 +146,16 @@ seller:
 # only sets the engine's fixed parameters.
 method_test:
   auto_start: true               # start the engine enabled on worker boot (runs continuously; dashboard can still pause it)
-  marketplace: DE                # back-compat default; used as fallback marketplace where one isn't otherwise specified
-  marketplaces: [DE, GB, FR, ES] # round robin spans all of these; GB/FR/ES are seeded with the SAME browse node IDs as DE
-                                  # (categories.json/topcategories.json have no per-marketplace IDs) — Amazon assigns different
-                                  # node IDs per marketplace, so some/all GB/FR/ES nodes may return empty or wrong-category
-                                  # results until real per-marketplace IDs are sourced. Watch the dashboard per marketplace.
+  marketplace: DE
+  marketplaces: [DE]             # German catalog, browse nodes, links, and Keepa domain only
+  credential_marketplaces: [DE, GB, FR, ES, IT] # rotate these credential pools against amazon.de
   max_price: 450                 # € sweep ceiling per node before wrapping to 0
   keepa_drop_percent: 30         # flat threshold: reject unless price is >= this % below the Keepa avg (90d, or 30d fallback)
   min_drop_currency: 30          # reject unless the Keepa average is at least €30 above the current price
-  tick_seconds: 110              # delay between round-robin ticks; shared across ALL enabled nodes in ALL marketplaces above —
-                                  # adding GB/FR/ES multiplies the enabled node count, so each node (incl. existing DE ones)
-                                  # gets revisited proportionally less often at this same fixed pace
-  daily_budget_requests: 8640    # Creator API basic-plan TPD budget (10 ASINs/call), shared globally across every marketplace
-                                  # above; engine pauses once reached (across all of them combined), resumes next day
+  min_drop_currency_avg_floor: 60 # skip the absolute €30/£30/$30 gate when the selected Keepa average is below this
+  daily_budget_per_credential: 8640
+  credential_pool_daily_budget: 43200 # 5 × 8,640 across both worker scanners
+  reserved_continuous_requests: 5760  # 86,400 ÷ scanner.scan_interval_seconds (15)
+  max_pages_per_tick: 10
+  daily_budget_requests: 37440   # 43,200 pool − 5,760 continuous-scanner reserve
+  tick_seconds: 24               # ceil(86,400 sec × 10 pages ÷ 37,440), start-to-start

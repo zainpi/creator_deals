@@ -203,12 +203,16 @@ header p {
     gap: 15px;
 }
 
-/* ==================== A/B Item Results ==================== */
+/* ==================== Category Scanner Results ==================== */
 
 .method-results-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
+}
+
+.method-results-grid-single {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .method-results-column {

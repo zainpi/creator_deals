@@ -7,8 +7,8 @@ the web process — it writes the global feed + scanner_state, the web reads the
 Runs two independent loops in this one process (no extra Heroku dyno needed):
   - ScanLoop           (continuous_scanner.py) — the original learned-baseline,
                         multi-dimensional sweep. Always on.
-  - MethodScanLoop      (method_scanner.py) — the Method 1 vs Method 2 A/B
-                        engine from the board. Runs alongside the original
+  - MethodScanLoop      (method_scanner.py) — the category browse-node
+                        engine. Runs alongside the original
                         scanner as a second mode; starts paused until enabled
                         via /api/method_test/control (method_engine_state.enabled).
 """
@@ -52,7 +52,7 @@ def main():
             daemon=True,
         )
         method_thread.start()
-        logger.info("[WORKER] Method comparison loop started (paused until enabled)")
+        logger.info("[WORKER] Category scan loop started (paused until enabled)")
     except Exception as e:
         logger.error(f"[WORKER] Failed to start method comparison loop: {e}")
 

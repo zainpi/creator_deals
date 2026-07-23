@@ -1,15 +1,12 @@
-"""Method 1 vs Method 2 comparison engine.
+"""Category browse-node scanning engine.
 
 Implements the "Overall flow" from the Creators API monitor board as a
 standalone engine, separate from continuous_scanner.py's learned-baseline
 scanner (the two run side by side — see worker.py).
 
-Method 1 = search using a category's SUBCATEGORY browse nodes.
-Method 2 = search using just the top-level category's PARENT browse node.
-Both are browse-node-only searches (no keywords, no searchIndex filter) so the
-comparison isolates the one variable that differs between them: node
-granularity. Results are posted to separate per-method Discord channels
-(discord.method_webhooks.method1 / method2), tiered by Keepa drop % (90d,
+Searches each category's curated subcategory browse nodes without keywords.
+Results are posted to the configured scanner Discord channels
+(discord.method_webhooks.method1), tiered by Keepa drop % (90d,
 preferring longer windows — 180d/365d — over the 30d last-resort fallback)
 (tier90 / tier70 / tier50 / rest), with Keepa+AI rejects going to each
 method's trash channel, so the two can be judged head to head.
@@ -46,6 +43,8 @@ from discord_alerts import DiscordAlerts
 from filters import DealFilters
 from database import (
     seed_method_node,
+    delete_stale_method_nodes,
+    delete_method_nodes_outside_marketplaces,
     get_method_nodes,
     update_method_node_price,
     get_method_asin_cache_batch,
@@ -87,16 +86,51 @@ class MethodScanner:
         self.config = config
         mt = config.get("method_test", {}) or {}
 
-        raw_mkts = mt.get("marketplaces") or [mt.get("marketplace", "DE")]
-        self.marketplaces = [str(m).upper() for m in raw_mkts] or ["DE"]
-        self.marketplace = self.marketplaces[0]  # back-compat default for single-value fallback usages below
+        self.marketplaces = ["DE"]
+        self.marketplace = "DE"
+        raw_credential_sources = mt.get("credential_marketplaces") or ["DE"]
+        self.credential_marketplaces = [
+            str(m).upper() for m in raw_credential_sources
+        ] or ["DE"]
         self.max_price = float(mt.get("max_price", 450))
         self.keepa_drop_percent = float(mt.get("keepa_drop_percent", 30))
         self.min_drop_currency = float(mt.get("min_drop_currency", 30))
-        self.daily_budget_requests = int(mt.get("daily_budget_requests", 8640))
-        self.tick_seconds = max(1, int(mt.get("tick_seconds", 20)))
+        self.min_drop_currency_avg_floor = float(
+            mt.get("min_drop_currency_avg_floor", 60)
+        )
+        self.daily_budget_per_credential = int(
+            mt.get("daily_budget_per_credential", 8640)
+        )
+        self.max_pages_per_tick = max(1, int(mt.get("max_pages_per_tick", 10)))
+        computed_daily_budget, computed_tick_seconds = DealFilters.scan_limits(
+            len(self.credential_marketplaces),
+            self.daily_budget_per_credential,
+            self.max_pages_per_tick,
+        )
+        self.daily_budget_requests = int(
+            mt.get("daily_budget_requests", computed_daily_budget)
+        )
+        # Recompute if a manual total-budget override is supplied.
+        if self.daily_budget_requests != computed_daily_budget:
+            computed_tick_seconds = math.ceil(
+                86400 * self.max_pages_per_tick
+                / max(1, self.daily_budget_requests)
+            )
+        self.tick_seconds = max(
+            1, int(mt.get("tick_seconds", computed_tick_seconds))
+        )
 
-        self.searcher = CreatorsSearch(config)
+        # One searcher per credential source preserves an independent OAuth
+        # token cache and rate-limit window for every pool. All target Germany.
+        self.searchers = {}
+        for source in self.credential_marketplaces:
+            searcher = CreatorsSearch(config)
+            searcher.marketplace = "DE"
+            searcher._load_credentials(
+                source, allow_generic=(source == "DE")
+            )
+            self.searchers[source] = searcher
+        self.searcher = self.searchers[self.credential_marketplaces[0]]
 
         self.keepa = None
         keepa_cfg = config.get("keepa", {}) or {}
@@ -119,7 +153,6 @@ class MethodScanner:
         method_webhooks = discord_cfg.get("method_webhooks", {}) or {}
         self.webhook_by_method = {
             1: self._normalize_webhooks(method_webhooks.get("method1")),
-            2: self._normalize_webhooks(method_webhooks.get("method2")),
         }
 
         self._seed_nodes()
@@ -158,24 +191,18 @@ class MethodScanner:
     # ------------------------------------------------------------------ seeding
 
     def _seed_nodes(self):
-        """Populate method_nodes from data/categories.json (Method 1, one row
-        per unique subcategory browse node) and data/topcategories.json
-        (Method 2, one row per category that has a parentBrowseNodeId), once
-        per marketplace in self.marketplaces.
+        """Populate method_nodes from data/categories.json, one row per unique
+        subcategory browse node, once per marketplace in self.marketplaces.
         Idempotent — safe to call on every startup.
 
-        NOTE: categories.json/topcategories.json carry no per-marketplace
-        browse node IDs — every marketplace here is seeded with the SAME
-        (DE-sourced) IDs. Amazon's browse node trees differ per marketplace,
-        so GB/FR/ES nodes may return empty or wrong-category results until
-        real per-marketplace IDs replace these."""
+        Only German target rows are retained; credential source rotation is
+        independent of the target marketplace."""
         cats = _load_json(_CATEGORIES_PATH)
         tops = _load_json(_TOPCATEGORIES_PATH)
 
-        # Method 1: dedupe by (searchIndex, browseNodeId) — several curated
+        # Dedupe by (searchIndex, browseNodeId) — several curated
         # keyword rows often share one subcategory node. Search browse-node-only
-        # (no keyword) so Method 1 and Method 2 are an apples-to-apples test of
-        # node granularity, not keyword coverage.
+        # (no keyword) to cover the full subcategory rather than one query.
         seen_nodes = {}
         for row in cats:
             idx = row.get("searchIndex")
@@ -188,24 +215,29 @@ class MethodScanner:
 
         top_by_index = {t.get("searchIndex"): t for t in tops if t.get("searchIndex")}
 
+        valid_nodes = set(seen_nodes)
+        removed_domains = delete_method_nodes_outside_marketplaces(
+            self.marketplaces
+        )
+        if removed_domains:
+            logger.info(
+                "[METHOD] Removed %s non-German scanner nodes",
+                removed_domains,
+            )
         for marketplace in self.marketplaces:
+            deleted = delete_stale_method_nodes(marketplace, 1, valid_nodes)
+            if deleted:
+                logger.info(
+                    "[METHOD] Removed %s stale Method 1 nodes for %s",
+                    deleted,
+                    marketplace,
+                )
             for (idx, node), label in seen_nodes.items():
                 display = (top_by_index.get(idx) or {}).get("displayName") or idx
                 enabled = 1 if idx in _DEFAULT_ENABLED_CATEGORIES else 0
                 seed_method_node(
                     marketplace, idx, 1, node,
                     label=f"{display} → {label}", keywords=None, enabled=enabled,
-                )
-
-            # Method 2: one node per category with a known parent browse node id.
-            for idx, t in top_by_index.items():
-                parent = t.get("parentBrowseNodeId")
-                if not parent:
-                    continue
-                enabled = 1 if idx in _DEFAULT_ENABLED_CATEGORIES else 0
-                seed_method_node(
-                    marketplace, idx, 2, str(parent),
-                    label=t.get("displayName") or idx, keywords=None, enabled=enabled,
                 )
 
     # --------------------------------------------------------------- scan tick
@@ -237,7 +269,12 @@ class MethodScanner:
             )
             return None
 
-        nodes = get_method_nodes(enabled_only=True)  # spans every marketplace in self.marketplaces — one shared round robin
+        # Method 2 is retired. Historical rows can remain in existing databases,
+        # but the scanner never schedules them.
+        nodes = [
+            n for n in get_method_nodes(enabled_only=True)
+            if int(n["method"]) == 1 and n["marketplace"] == "DE"
+        ]
         if not nodes:
             update_method_engine_state(running=0, last_heartbeat=now,
                                        current_target="No categories enabled")
@@ -245,7 +282,13 @@ class MethodScanner:
 
         pointer = int(state.get("rr_pointer", 0) or 0) % len(nodes)
         node = nodes[pointer]
-        human = f'{node["marketplace"]} · {node["category"]} · Method {node["method"]} · €{node.get("current_min_price", 0):.0f}+'
+        credential_source = self.credential_marketplaces[
+            int(state.get("rr_pointer", 0) or 0) % len(self.credential_marketplaces)
+        ]
+        human = (
+            f'DE · {node["category"]} · credentials {credential_source} · '
+            f'€{node.get("current_min_price", 0):.0f}+'
+        )
         update_method_engine_state(
             running=1, rr_pointer=(pointer + 1) % len(nodes),
             last_heartbeat=now, current_target=human, last_error=None,
@@ -253,7 +296,7 @@ class MethodScanner:
         logger.info(f"[METHOD] tick: {human}")
 
         try:
-            self._process_node(node)
+            self._process_node(node, credential_source)
         except Exception as e:
             logger.exception(f"[METHOD] node processing error: {e}")
             update_method_engine_state(last_error=str(e)[:200], last_heartbeat=datetime.utcnow().isoformat())
@@ -265,18 +308,15 @@ class MethodScanner:
 
     # ------------------------------------------------------------- one node
 
-    def _process_node(self, node):
-        marketplace = node["marketplace"]
+    def _process_node(self, node, credential_source="DE"):
+        marketplace = "DE"
         category = node["category"]
         method = int(node["method"])
         browse_node_id = node["browse_node_id"]
         min_price = float(node.get("current_min_price") or 0)
 
-        self.searcher.marketplace = marketplace
-        try:
-            self.searcher._load_credentials()
-        except Exception:
-            pass
+        self.searcher = self.searchers[credential_source]
+        self.searcher.marketplace = "DE"
 
         result = self.searcher.diagnostic_search(
             search_index="All",
@@ -287,7 +327,7 @@ class MethodScanner:
             min_price=min_price,
             max_price=self.max_price,
             item_count=10,
-            max_pages=10,
+            max_pages=self.max_pages_per_tick,
             use_keepa=False,  # this engine applies its own flat Keepa gate below
             delivery_flags=["FulfilledByAmazon"],  # board note: "FBA: ON"
         )
@@ -407,7 +447,14 @@ class MethodScanner:
                     marketplace,
                 )
                 continue
-            if currency_drop < self.min_drop_currency:
+            # Low-priced products cannot reasonably clear a fixed 30-unit drop
+            # even when their percentage discount is excellent. Below the
+            # configured average-price floor, the percentage gate above is
+            # sufficient and the absolute currency gate does not apply.
+            currency_gate_applies = DealFilters.absolute_drop_gate_applies(
+                avg, self.min_drop_currency_avg_floor
+            )
+            if currency_gate_applies and currency_drop < self.min_drop_currency:
                 rejected += 1
                 self._send_trash(
                     method, it, asin, price,
@@ -536,6 +583,7 @@ class MethodScanner:
             "current_price": price,
             "savings_percent": item.get("_keepa_drop"),
             "category": f"{category} (Method {method})",
+            "search_category": category,
             "seller_name": seller.get("seller_name") or "Unknown",
             "seller_id": seller.get("seller_id"),
             "keepa_avg_90": item.get("_keepa_avg90"),
@@ -566,9 +614,15 @@ class MethodScanLoop:
         self.interval = self.scanner.tick_seconds
 
     def run_forever(self):
-        logger.info(f"[METHOD] Starting method-comparison loop (interval {self.interval}s, "
-                    f"marketplaces {self.scanner.marketplaces})")
+        logger.info(
+            "[METHOD] Starting German category loop (cadence %ss, credentials %s, "
+            "daily budget %s)",
+            self.interval,
+            self.scanner.credential_marketplaces,
+            self.scanner.daily_budget_requests,
+        )
         while True:
+            tick_started = time.monotonic()
             try:
                 self.scanner.run_once()
             except Exception as e:
@@ -578,4 +632,7 @@ class MethodScanLoop:
                                                last_heartbeat=datetime.utcnow().isoformat())
                 except Exception:
                     pass
-            time.sleep(self.interval)
+            # Maintain the configured start-to-start cadence. API pagination
+            # time counts toward the interval instead of being added on top.
+            elapsed = time.monotonic() - tick_started
+            time.sleep(max(0.0, self.interval - elapsed))

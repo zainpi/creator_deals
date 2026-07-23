@@ -21,8 +21,8 @@ class DiscordAlerts:
         """Send product alert to Discord.
 
         `webhook_url` optionally overrides self.webhook_url for this send only —
-        used to route a deal to a specific channel (e.g. the Method 1 / Method 2
-        comparison channels) without needing a separate DiscordAlerts instance.
+        used to route a deal to a specific scanner channel without needing a
+        separate DiscordAlerts instance.
         """
         target_url = webhook_url or self.webhook_url
 
@@ -159,6 +159,12 @@ class DiscordAlerts:
             embed.add_embed_field(
                 name="📂 Category",
                 value=product.get("category", "Unknown"),
+                inline=False
+            )
+
+            embed.add_embed_field(
+                name="🔎 Search Category",
+                value=product.get("search_category") or product.get("category", "Unknown"),
                 inline=False
             )
 

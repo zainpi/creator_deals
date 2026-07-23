@@ -99,14 +99,22 @@ class CreatorsSearch:
     # Credential loading
     # =========================================================================
 
-    def _load_credentials(self):
-        marketplace_key = f"Amazon_{self.marketplace}"
+    def _load_credentials(self, credential_marketplace=None, allow_generic=True):
+        """Load one credential set independently of the search marketplace.
+
+        This lets a scanner rotate multiple account credential pools while all
+        requests still target one marketplace (for example, amazon.de).
+        """
+        source = str(credential_marketplace or self.marketplace).upper()
+        self.credential_marketplace = source
+        marketplace_key = f"Amazon_{source}"
         creds = self.config.get(marketplace_key, {})
 
         def env_or_config(field: str, *generic_names: str) -> str | None:
             marketplace_env = f"{marketplace_key}_{field}".upper()
             marketplace_env = "".join(c if c.isalnum() else "_" for c in marketplace_env)
-            for name in (marketplace_env, *generic_names):
+            names = (marketplace_env, *generic_names) if allow_generic else (marketplace_env,)
+            for name in names:
                 value = os.getenv(name)
                 if value is not None and value.strip():
                     return value
@@ -186,8 +194,9 @@ class CreatorsSearch:
         if not self.credential_id or not self.secret:
             raise RuntimeError(
                 "Missing Amazon Creators credentials. Set "
-                f"{self.marketplace} config values or env vars like "
-                f"AMAZON_{self.marketplace}_CREDENTIAL_ID and AMAZON_{self.marketplace}_SECRET."
+                f"{self.credential_marketplace} config values or env vars like "
+                f"AMAZON_{self.credential_marketplace}_CREDENTIAL_ID and "
+                f"AMAZON_{self.credential_marketplace}_SECRET."
             )
 
         token = self._get_token_v3(self.credential_id, self.secret)

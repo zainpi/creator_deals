@@ -1,4 +1,5 @@
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,22 @@ def set_blocked_categories(config):
 
 class DealFilters:
     """Deal filtering and validation logic."""
+
+    @staticmethod
+    def absolute_drop_gate_applies(average_price, average_floor):
+        """Fixed currency-drop gates are waived below the average-price floor."""
+        return float(average_price) >= float(average_floor)
+
+    @staticmethod
+    def scan_limits(credential_count, requests_per_credential, max_pages):
+        """Return the combined daily budget and safe start-to-start cadence."""
+        daily_budget = max(1, int(credential_count)) * max(
+            1, int(requests_per_credential)
+        )
+        tick_seconds = math.ceil(
+            86400 * max(1, int(max_pages)) / daily_budget
+        )
+        return daily_budget, max(1, tick_seconds)
     
     @staticmethod
     def extract_category(item):

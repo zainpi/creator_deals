@@ -1,1100 +1,1214 @@
 [
   {
     "id": 1,
-    "searchIndex": "Appliances",
-    "keywords": "Backöfen",
-    "browseNodeId": "13528203031",
-    "priceNote": "50€ - 50%",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Actionkameras & Zubehör",
+    "browseNodeId": "2494677031"
   },
   {
     "id": 2,
-    "searchIndex": "Appliances",
-    "keywords": "Dunstabzugshauben",
-    "browseNodeId": "13528203031",
-    "priceNote": "50€ - 50%",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Analoge Kameras",
+    "browseNodeId": "571902"
   },
   {
     "id": 3,
-    "searchIndex": "Appliances",
-    "keywords": "Herde",
-    "browseNodeId": "13528203031",
-    "priceNote": "€50 - 50%",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Blitzgeräte",
+    "browseNodeId": "570264"
   },
   {
     "id": 4,
-    "searchIndex": "Appliances",
-    "keywords": "Herdsets",
-    "browseNodeId": "13528203031",
-    "priceNote": "€50 - 50%",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Camcorder",
+    "browseNodeId": "273647011"
   },
   {
     "id": 5,
-    "searchIndex": "Appliances",
-    "keywords": "Kochfelder",
-    "browseNodeId": "13528203031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Dia-Betrachter",
+    "browseNodeId": "1358976031"
   },
   {
     "id": 6,
-    "searchIndex": "Appliances",
-    "keywords": "Wärmeschubladen",
-    "browseNodeId": "13528203031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Diaprojektoren",
+    "browseNodeId": "901968"
   },
   {
     "id": 7,
-    "searchIndex": "Appliances",
-    "keywords": "Bierfasskühlanlagen",
-    "browseNodeId": "18066591031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Digitale Bilderrahmen",
+    "browseNodeId": "356122011"
   },
   {
     "id": 8,
-    "searchIndex": "Appliances",
-    "keywords": "Mini-Zapfanlagen",
-    "browseNodeId": "18066591031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Digitalkameras",
+    "browseNodeId": "571862"
   },
   {
     "id": 9,
-    "searchIndex": "Appliances",
-    "keywords": "Weinkühlschränke",
-    "browseNodeId": "18066591031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Ferngläser, Teleskope & Optik",
+    "browseNodeId": "332036031"
   },
   {
     "id": 10,
-    "searchIndex": "Appliances",
-    "keywords": "Geschirrspüler",
-    "browseNodeId": "16075771",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Filmscanner",
+    "browseNodeId": "430206031"
   },
   {
     "id": 11,
-    "searchIndex": "Appliances",
-    "keywords": "Geschirrtrockner",
-    "browseNodeId": "908823031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Fotodrucker",
+    "browseNodeId": "430122031"
   },
   {
     "id": 12,
-    "searchIndex": "Appliances",
-    "keywords": "Elektro-Komposter",
-    "browseNodeId": "908823031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Objektive",
+    "browseNodeId": "570286"
   },
   {
     "id": 13,
-    "searchIndex": "Appliances",
-    "keywords": "Gefriergeräte",
-    "browseNodeId": "13528201031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Stative",
+    "browseNodeId": "570028"
   },
   {
     "id": 14,
-    "searchIndex": "Appliances",
-    "keywords": "Kühlschränke",
-    "browseNodeId": "13528201031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Unterwasserfotografie",
+    "browseNodeId": "332054031"
   },
   {
     "id": 15,
-    "searchIndex": "Appliances",
-    "keywords": "Mini-Küchen",
-    "browseNodeId": "908823031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Video-Projektoren",
+    "browseNodeId": "3466351"
   },
   {
     "id": 16,
-    "searchIndex": "Appliances",
-    "keywords": "Müllpressen",
-    "browseNodeId": "908823031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Zubehör",
+    "browseNodeId": "331964031"
   },
   {
     "id": 17,
-    "searchIndex": "Appliances",
-    "keywords": "Mobile Waschmaschinen",
-    "browseNodeId": "1399929031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Photo",
+    "keywords": "Überwachungskameras",
+    "browseNodeId": "119915031"
   },
   {
     "id": 18,
-    "searchIndex": "Appliances",
-    "keywords": "Trockner",
-    "browseNodeId": "1399929031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Baubedarf",
+    "browseNodeId": "2076091031"
   },
   {
     "id": 19,
-    "searchIndex": "Appliances",
-    "keywords": "Wasch- & Trockensäulen",
-    "browseNodeId": "908823031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Baumaschinen & Zubehör",
+    "browseNodeId": "2076791031"
   },
   {
     "id": 20,
-    "searchIndex": "Appliances",
-    "keywords": "Wäscheschleudern",
-    "browseNodeId": "1399929031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Eisenwaren",
+    "browseNodeId": "2076451031"
   },
   {
     "id": 21,
-    "searchIndex": "Appliances",
-    "keywords": "Waschmaschinen",
-    "browseNodeId": "1399929031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Elektro- & Handwerkzeuge",
+    "browseNodeId": "2076939031"
   },
   {
     "id": 22,
-    "searchIndex": "Appliances",
-    "keywords": "Waschtrockner",
-    "browseNodeId": "1399929031",
-    "priceNote": "€50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Elektroinstallation",
+    "browseNodeId": "2076361031"
   },
   {
     "id": 23,
-    "searchIndex": "Appliances",
-    "keywords": "Inverter",
-    "browseNodeId": "32075753031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Kamine",
+    "browseNodeId": "2076424031"
   },
   {
     "id": 24,
-    "searchIndex": "Appliances",
-    "keywords": "Wechselrichter & Akku-Sets",
-    "browseNodeId": "32075753031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Küchen- & Badinstallation",
+    "browseNodeId": "2076820031"
   },
   {
     "id": 25,
-    "searchIndex": "Appliances",
-    "keywords": "Zubehör",
-    "browseNodeId": "265854011",
-    "priceNote": "70% above - 15 euros intervals",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Lagersysteme",
+    "browseNodeId": "2077689031"
   },
   {
     "id": 26,
-    "searchIndex": "Computers",
-    "keywords": "Barebones",
-    "browseNodeId": "340843031",
-    "priceNote": "50",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Malerbedarf, Werkzeuge & Tapeten",
+    "browseNodeId": "2076883031"
   },
   {
     "id": 27,
-    "searchIndex": "Computers",
-    "keywords": "Adapter",
-    "browseNodeId": "427958031",
-    "priceNote": "70% - 15 euro intervals",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Rasenmäher & elektrisches Gartenwerkzeug",
+    "browseNodeId": "2076882031"
   },
   {
     "id": 28,
-    "searchIndex": "Computers",
-    "keywords": "PC-Headsets",
-    "browseNodeId": "16106312031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Sanitär",
+    "browseNodeId": "2077554031"
   },
   {
     "id": 29,
-    "searchIndex": "Computers",
-    "keywords": "PC-Lautsprecher",
-    "browseNodeId": "16106312031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Electronics",
+    "keywords": "Auto- & Fahrzeugelektronik",
+    "browseNodeId": "1071738"
   },
   {
     "id": 30,
-    "searchIndex": "Computers",
-    "keywords": "PC-Mikrofone",
-    "browseNodeId": "16106312031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Electronics",
+    "keywords": "Computer & Zubehör",
+    "browseNodeId": "1626220031"
   },
   {
     "id": 31,
-    "searchIndex": "Computers",
-    "keywords": "Webcams, Headsets & Mikrofone",
-    "browseNodeId": "16106312031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "eBook-Reader & -Zubehör",
+    "browseNodeId": "671885031"
   },
   {
     "id": 32,
-    "searchIndex": "Computers",
-    "keywords": "Computer- & Server-Racks",
-    "browseNodeId": "430050031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Electronics",
+    "keywords": "Fernseher & Heimkino",
+    "browseNodeId": "761254"
   },
   {
     "id": 33,
-    "searchIndex": "Computers",
-    "keywords": "Festplatten-Zubehör",
-    "browseNodeId": "5224515031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Festnetztelefone, VOIP & Zubehör",
+    "browseNodeId": "1384527031"
   },
   {
     "id": 34,
-    "searchIndex": "Computers",
-    "keywords": "Kabel",
-    "browseNodeId": "22209181031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Funkgeräte & Zubehör",
+    "browseNodeId": "16069771"
   },
   {
     "id": 35,
-    "searchIndex": "Computers",
-    "keywords": "Bundles",
-    "browseNodeId": "430066031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Electronics",
+    "keywords": "Garantien",
+    "browseNodeId": "3118141"
   },
   {
     "id": 36,
-    "searchIndex": "Computers",
-    "keywords": "Kühlpads & externe Lüfter",
-    "browseNodeId": "430066031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Handys & Zubehör",
+    "browseNodeId": "1384526031"
   },
   {
     "id": 37,
-    "searchIndex": "Computers",
-    "keywords": "Ladegeräte & Dockingstationen",
-    "browseNodeId": "6411155031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Hifi & Audio",
+    "browseNodeId": "571760"
   },
   {
     "id": 38,
-    "searchIndex": "Computers",
-    "keywords": "Notebooktaschen & -koffer",
-    "browseNodeId": "430119031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Kamera & Foto",
+    "browseNodeId": "571860"
   },
   {
     "id": 39,
-    "searchIndex": "Computers",
-    "keywords": "Sicherheitsschlösser",
-    "browseNodeId": "430066031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Navigation, GPS & Zubehör",
+    "browseNodeId": "236861011"
   },
   {
     "id": 40,
-    "searchIndex": "Computers",
-    "keywords": "Monitorarm",
-    "browseNodeId": "430059031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Tragbare Geräte",
+    "browseNodeId": "571712"
   },
   {
     "id": 41,
-    "searchIndex": "Computers",
-    "keywords": "Monitorständer",
-    "browseNodeId": "430059031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Electronics",
+    "keywords": "Zubehör",
+    "browseNodeId": "569866"
   },
   {
     "id": 42,
-    "searchIndex": "Computers",
-    "keywords": "Tablet-Zubehör",
-    "browseNodeId": "815131031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Appliances",
+    "keywords": "Backöfen & Kochfelder",
+    "browseNodeId": "13528203031"
   },
   {
     "id": 43,
-    "searchIndex": "Computers",
-    "keywords": "Ersatzbatterien",
-    "browseNodeId": "14330009031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Appliances",
+    "keywords": "Eiswürfelmaschinen",
+    "browseNodeId": "3495086031"
   },
   {
     "id": 44,
-    "searchIndex": "Computers",
-    "keywords": "Unterbrechungsfreie Stromversorgung",
-    "browseNodeId": "14330009031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Appliances",
+    "keywords": "Geschirrspüler",
+    "browseNodeId": "16075771"
   },
   {
     "id": 45,
-    "searchIndex": "Computers",
-    "keywords": "USB-Gadgets",
-    "browseNodeId": "9638138031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Appliances",
+    "keywords": "Geschirrtrockner",
+    "browseNodeId": "13528192031"
   },
   {
     "id": 46,
-    "searchIndex": "Computers",
-    "keywords": "USB-Hubs",
-    "browseNodeId": "430064031",
-    "priceNote": "70% - 15 euros",
-    "minSavingPercent": 70,
-    "intervalEuro": 15
+    "searchIndex": "Appliances",
+    "keywords": "Kühl- & Gefrierschränke",
+    "browseNodeId": "13528201031"
   },
   {
     "id": 47,
-    "searchIndex": "Computers",
-    "keywords": "Externe Datenspeicher",
-    "browseNodeId": "17449504031",
-    "priceNote": "50% - 15 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 15
+    "searchIndex": "Appliances",
+    "keywords": "Mini-Küchen",
+    "browseNodeId": "248277031"
   },
   {
     "id": 48,
-    "searchIndex": "Computers",
-    "keywords": "14076205031",
-    "browseNodeId": "17449504031",
-    "priceNote": "50% - 15 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 15
+    "searchIndex": "Appliances",
+    "keywords": "Waschmaschinen & Trockner",
+    "browseNodeId": "1399929031"
   },
   {
     "id": 49,
-    "searchIndex": "Computers",
-    "keywords": "Krypto-Hardware-Wallets",
-    "browseNodeId": "17449504031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Appliances",
+    "keywords": "Weinkühlschränke",
+    "browseNodeId": "265849011"
   },
   {
     "id": 50,
-    "searchIndex": "Computers",
-    "keywords": "NAS-Systeme",
-    "browseNodeId": "17449504031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Appliances",
+    "keywords": "Zubehör",
+    "browseNodeId": "265854011"
   },
   {
     "id": 51,
-    "searchIndex": "Computers",
-    "keywords": "All-in-One PCs",
-    "browseNodeId": "427954031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Auto- & Fahrzeugelektronik",
+    "browseNodeId": "3041064031"
   },
   {
     "id": 52,
-    "searchIndex": "Computers",
-    "keywords": "Mini-PCs",
-    "browseNodeId": "427954031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Autositze & Zubehör",
+    "browseNodeId": "3968832031"
   },
   {
     "id": 53,
-    "searchIndex": "Computers",
-    "keywords": "Tower-PCs",
-    "browseNodeId": "427954031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Autozubehör",
+    "browseNodeId": "79923031"
   },
   {
     "id": 54,
-    "searchIndex": "Computers",
-    "keywords": "Drucker",
-    "browseNodeId": "17441410031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Motorräder, Ersatzteile & Zubehör",
+    "browseNodeId": "4606925031"
   },
   {
     "id": 55,
-    "searchIndex": "Computers",
-    "keywords": "Externe PC-Komponenten",
-    "browseNodeId": "427956031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Navigationsgeräte",
+    "browseNodeId": "2901618031"
   },
   {
     "id": 56,
-    "searchIndex": "Computers",
-    "keywords": "Arbeitsspeicher",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Öle & Betriebsstoffe",
+    "browseNodeId": "79922031"
   },
   {
     "id": 57,
-    "searchIndex": "Computers",
-    "keywords": "Grafikkarten",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Reifen & Felgen",
+    "browseNodeId": "424628031"
   },
   {
     "id": 58,
-    "searchIndex": "Computers",
-    "keywords": "Interne TV- & Videoschnittkarten",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Reinigung & Pflege",
+    "browseNodeId": "82400031"
   },
   {
     "id": 59,
-    "searchIndex": "Computers",
-    "keywords": "Mainboards",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Transportsysteme",
+    "browseNodeId": "79924031"
   },
   {
     "id": 60,
-    "searchIndex": "Computers",
-    "keywords": "PC-Kühlung & Lüfter",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Werkzeuge",
+    "browseNodeId": "2502064031"
   },
   {
     "id": 61,
-    "searchIndex": "Computers",
-    "keywords": "PC-Netzteile",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Automotive",
+    "keywords": "Wohnmobilausstattung",
+    "browseNodeId": "79925031"
   },
   {
     "id": 62,
-    "searchIndex": "Computers",
-    "keywords": "Prozessoren",
-    "browseNodeId": "17453196031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Baby- & Kinderpflege",
+    "browseNodeId": "4220746031"
   },
   {
     "id": 63,
-    "searchIndex": "Computers",
-    "keywords": "2-in-1-Laptops",
-    "browseNodeId": "427957031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Damenhygiene & Intimpflege",
+    "browseNodeId": "1888212031"
   },
   {
     "id": 64,
-    "searchIndex": "Computers",
-    "keywords": "Normale Laptops",
-    "browseNodeId": "427957031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Elektronische Zigaretten, Shishas & Zubehör",
+    "browseNodeId": "1689043031"
   },
   {
     "id": 65,
-    "searchIndex": "Computers",
-    "keywords": "LCD-Schreibtafeln",
-    "browseNodeId": "15424891031",
-    "priceNote": "50% - 50 euro",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Haushaltswaren",
+    "browseNodeId": "64270031"
   },
   {
     "id": 66,
-    "searchIndex": "Electronics",
-    "keywords": "Auto- & Fahrzeugelektronik",
-    "browseNodeId": "1071738",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Kontaktlinsen & Brillen",
+    "browseNodeId": "1690934031"
   },
   {
     "id": 67,
-    "searchIndex": "Electronics",
-    "keywords": "Computer & Zubehör",
-    "browseNodeId": "1626220031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Medizin & Erste Hilfe",
+    "browseNodeId": "2860338031"
   },
   {
     "id": 68,
-    "searchIndex": "Electronics",
-    "keywords": "eBook-Reader & -Zubehör",
-    "browseNodeId": "671885031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Medizinische Geräte & Verbrauchsmaterialien",
+    "browseNodeId": "2860102031"
   },
   {
     "id": 69,
-    "searchIndex": "Electronics",
-    "keywords": "Fernseher & Heimkino",
-    "browseNodeId": "761254",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Mund- & Zahnpflege",
+    "browseNodeId": "64275031"
   },
   {
     "id": 70,
-    "searchIndex": "Electronics",
-    "keywords": "Festnetztelefone, VOIP & Zubehör",
-    "browseNodeId": "1384527031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Nahrungsergänzung",
+    "browseNodeId": "676266031"
   },
   {
     "id": 71,
-    "searchIndex": "Electronics",
-    "keywords": "Funkgeräte & Zubehör",
-    "browseNodeId": "16069771",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Rasur & Enthaarung",
+    "browseNodeId": "64266031"
   },
   {
     "id": 72,
-    "searchIndex": "Electronics",
-    "keywords": "Garantien",
-    "browseNodeId": "3118141",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Schwangerschaft",
+    "browseNodeId": "64277031"
   },
   {
     "id": 73,
-    "searchIndex": "Electronics",
-    "keywords": "Handys & Zubehör",
-    "browseNodeId": "1384526031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "HealthPersonalCare",
+    "keywords": "Wellness",
+    "browseNodeId": "64362031"
   },
   {
     "id": 74,
-    "searchIndex": "Electronics",
-    "keywords": "Hifi & Audio",
-    "browseNodeId": "571760",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Büroelektronik",
+    "browseNodeId": "197754031"
   },
   {
     "id": 75,
-    "searchIndex": "Electronics",
-    "keywords": "Kamera & Foto",
-    "browseNodeId": "571860",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Büromaterial",
+    "browseNodeId": "197751031"
   },
   {
     "id": 76,
-    "searchIndex": "Electronics",
-    "keywords": "Navigation, GPS & Zubehör",
-    "browseNodeId": "236861011",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Büromöbel & -beleuchtung",
+    "browseNodeId": "197752031"
   },
   {
     "id": 77,
-    "searchIndex": "Electronics",
-    "keywords": "Tragbare Geräte",
-    "browseNodeId": "571712",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Kalender, Planer & Organizer",
+    "browseNodeId": "197758031"
   },
   {
     "id": 78,
-    "searchIndex": "Electronics",
-    "keywords": "Zubehör",
-    "browseNodeId": "569866",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Künstler- & Bastelbedarf",
+    "browseNodeId": "9518043031"
   },
   {
     "id": 79,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "78191031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Schreibwaren",
+    "browseNodeId": "197756031"
   },
   {
     "id": 80,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "355007011",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "OfficeProducts",
+    "keywords": "Schule & Universität",
+    "browseNodeId": "197755031"
   },
   {
     "id": 81,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "80084031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Fische",
+    "browseNodeId": "445313031"
   },
   {
     "id": 82,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "213083031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Hunde",
+    "browseNodeId": "445314031"
   },
   {
     "id": 83,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "340843031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Katzen",
+    "browseNodeId": "445315031"
   },
   {
     "id": 84,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "64187031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Kleintiere",
+    "browseNodeId": "445316031"
   },
   {
     "id": 85,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "908823031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Nutztiere",
+    "browseNodeId": "470829031"
   },
   {
     "id": 86,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "562066",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Pferde",
+    "browseNodeId": "445317031"
   },
   {
     "id": 87,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "10925031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Terraristik",
+    "browseNodeId": "445318031"
   },
   {
     "id": 88,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "5866098031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Vögel",
+    "browseNodeId": "445319031"
   },
   {
     "id": 89,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "340852031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "PetSupplies",
+    "keywords": "Wildtiere",
+    "browseNodeId": "470883031"
   },
   {
     "id": 90,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "84230031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Gartenarbeit",
+    "browseNodeId": "4288403031"
   },
   {
     "id": 91,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "3167641",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Gartenhäuser & Aufbewahrung",
+    "browseNodeId": "300256031"
   },
   {
     "id": 92,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "340849031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Gartenmöbel & Zubehör",
+    "browseNodeId": "11718751"
   },
   {
     "id": 93,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "12950651",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Grills & Zubehör",
+    "browseNodeId": "11048731"
   },
   {
     "id": 94,
-    "searchIndex": "Angebote",
-    "keywords": "",
-    "browseNodeId": "16435051",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Heizstrahler & Feuerstellen",
+    "browseNodeId": "13301761"
   },
   {
     "id": 95,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Baubedarf",
-    "browseNodeId": "2076091031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Nutztiere",
+    "browseNodeId": "470829031"
   },
   {
     "id": 96,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Baumaschinen & Zubehör",
-    "browseNodeId": "2076791031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Pools, Gartensaunas & Whirlpools",
+    "browseNodeId": "345218011"
   },
   {
     "id": 97,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Eisenwaren",
-    "browseNodeId": "2076451031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Rasenmäher & elektrische Gartenwerkzeuge",
+    "browseNodeId": "120589031"
   },
   {
     "id": 98,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Elektro- & Handwerkzeuge",
-    "browseNodeId": "2076939031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Terrassen & Zäune",
+    "browseNodeId": "4550414031"
   },
   {
     "id": 99,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Elektroinstallation",
-    "browseNodeId": "2076361031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Thermometer & Wetterstationen",
+    "browseNodeId": "11047741"
   },
   {
     "id": 100,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Kamine",
-    "browseNodeId": "2076424031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "GardenAndOutdoor",
+    "keywords": "Wildtiere",
+    "browseNodeId": "470883031"
   },
   {
     "id": 101,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Küchen- & Badinstallation",
-    "browseNodeId": "2076820031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "3D-Druck & Digitalisierung",
+    "browseNodeId": "6587747031"
   },
   {
     "id": 102,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Lagersysteme",
-    "browseNodeId": "2077689031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Bildungs- & Schulbedarf",
+    "browseNodeId": "16241185031"
   },
   {
     "id": 103,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Malerbedarf, Werkzeuge & Tapeten",
-    "browseNodeId": "2076883031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Dentalbedarf",
+    "browseNodeId": "6310373031"
   },
   {
     "id": 104,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Rasenmäher & elektrisches Gartenwerkzeug",
-    "browseNodeId": "2076882031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Elektroinstallation",
+    "browseNodeId": "6310368031"
   },
   {
     "id": 105,
-    "searchIndex": "ToolsAndHomeImprovement",
-    "keywords": "Sanitär",
-    "browseNodeId": "2077554031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Elektrowerkzeuge & Handwerkzeuge",
+    "browseNodeId": "6587752031"
   },
   {
     "id": 106,
-    "searchIndex": "Photo",
-    "keywords": "Actionkameras & Zubehör",
-    "browseNodeId": "2494677031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Filtration",
+    "browseNodeId": "6310366031"
   },
   {
     "id": 107,
-    "searchIndex": "Photo",
-    "keywords": "Analoge Kameras",
-    "browseNodeId": "571902",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Hydraulik & Pneumatik",
+    "browseNodeId": "6310367031"
   },
   {
     "id": 108,
-    "searchIndex": "Photo",
-    "keywords": "Blitzgeräte",
-    "browseNodeId": "570264",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Labor- & wissenschaftlich genutzte Produkte",
+    "browseNodeId": "6587769031"
   },
   {
     "id": 109,
-    "searchIndex": "Photo",
-    "keywords": "Camcorder",
-    "browseNodeId": "273647011",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Materialtransportprodukte",
+    "browseNodeId": "6310370031"
   },
   {
     "id": 110,
-    "searchIndex": "Photo",
-    "keywords": "Dia-Betrachter",
-    "browseNodeId": "1358976031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Produkte für Arbeitsschutz & Sicherheit",
+    "browseNodeId": "6588776031"
   },
   {
     "id": 111,
-    "searchIndex": "Photo",
-    "keywords": "Diaprojektoren",
-    "browseNodeId": "901968",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Profi-Medizinbedarf",
+    "browseNodeId": "6588846031"
   },
   {
     "id": 112,
-    "searchIndex": "Photo",
-    "keywords": "Digitale Bilderrahmen",
-    "browseNodeId": "356122011",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Sanitärbedarf & Reinigungsmittel",
+    "browseNodeId": "6588210031"
   },
   {
     "id": 113,
-    "searchIndex": "Photo",
-    "keywords": "Digitalkameras",
-    "browseNodeId": "571862",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Schleifmittel & Veredlungsprodukte",
+    "browseNodeId": "6310362031"
   },
   {
     "id": 114,
-    "searchIndex": "Photo",
-    "keywords": "Ferngläser, Teleskope & Optik",
-    "browseNodeId": "332036031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Schneidwerkzeuge",
+    "browseNodeId": "6310364031"
   },
   {
     "id": 115,
-    "searchIndex": "Photo",
-    "keywords": "Filmscanner",
-    "browseNodeId": "430206031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Solar- & Windenergie",
+    "browseNodeId": "14888634031"
   },
   {
     "id": 116,
-    "searchIndex": "Photo",
-    "keywords": "Fotodrucker",
-    "browseNodeId": "430122031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Systemgastronomie-Ausrüstung & -Zubehör",
+    "browseNodeId": "10389441031"
   },
   {
     "id": 117,
-    "searchIndex": "Photo",
-    "keywords": "Objektive",
-    "browseNodeId": "570286",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Test & Messung",
+    "browseNodeId": "6589022031"
   },
   {
     "id": 118,
-    "searchIndex": "Photo",
-    "keywords": "Stative",
-    "browseNodeId": "570028",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Industrial",
+    "keywords": "Versandverpackungen & Kartonagen",
+    "browseNodeId": "6310371031"
   },
   {
     "id": 119,
-    "searchIndex": "Photo",
-    "keywords": "Unterwasserfotografie",
-    "browseNodeId": "332054031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Jewelry",
+    "keywords": "Damen",
+    "browseNodeId": "10459505031"
   },
   {
     "id": 120,
-    "searchIndex": "Photo",
-    "keywords": "Video-Projektoren",
-    "browseNodeId": "3466351",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Jewelry",
+    "keywords": "Herren",
+    "browseNodeId": "10459534031"
   },
   {
     "id": 121,
-    "searchIndex": "Photo",
-    "keywords": "Zubehör",
-    "browseNodeId": "331964031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Jewelry",
+    "keywords": "Mädchen",
+    "browseNodeId": "10459546031"
   },
   {
     "id": 122,
-    "searchIndex": "Photo",
-    "keywords": "Überwachungskameras",
-    "browseNodeId": "119915031",
-    "priceNote": "",
-    "minSavingPercent": 50,
-    "intervalEuro": 50
+    "searchIndex": "Jewelry",
+    "keywords": "Jungen",
+    "browseNodeId": "10459573031"
+  },
+  {
+    "id": 123,
+    "searchIndex": "Jewelry",
+    "keywords": "Bijouterie",
+    "browseNodeId": "5846354031"
+  },
+  {
+    "id": 124,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Aufbewahren & Ordnen",
+    "browseNodeId": "3437522031"
+  },
+  {
+    "id": 125,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Backen",
+    "browseNodeId": "3311261"
+  },
+  {
+    "id": 126,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Badausstattung",
+    "browseNodeId": "10739781"
+  },
+  {
+    "id": 127,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Bügeleisen, Dampfbügelstationen & Zubehör",
+    "browseNodeId": "3597063031"
+  },
+  {
+    "id": 128,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Elektrische Küchengeräte",
+    "browseNodeId": "3169321"
+  },
+  {
+    "id": 129,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Elektro-Großgeräte",
+    "browseNodeId": "16075741"
+  },
+  {
+    "id": 130,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Geschirr, Besteck & Gläser",
+    "browseNodeId": "3310821"
+  },
+  {
+    "id": 131,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Heimbrauen & Weinbereitung",
+    "browseNodeId": "3643188031"
+  },
+  {
+    "id": 132,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Heimtextilien, Bad- & Bettwaren",
+    "browseNodeId": "10176091"
+  },
+  {
+    "id": 133,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Heizen & Kühlen",
+    "browseNodeId": "3677546031"
+  },
+  {
+    "id": 134,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Kaffee, Tee & Espresso",
+    "browseNodeId": "3310781"
+  },
+  {
+    "id": 135,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Kochen",
+    "browseNodeId": "3094896031"
+  },
+  {
+    "id": 136,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Küchenhelfer & Kochzubehör",
+    "browseNodeId": "3311201"
+  },
+  {
+    "id": 137,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Möbel & Wohnaccessoires",
+    "browseNodeId": "3312261"
+  },
+  {
+    "id": 138,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Reinigungszubehör",
+    "browseNodeId": "3597048031"
+  },
+  {
+    "id": 139,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Staubsauger & Fußbodenpflege",
+    "browseNodeId": "3597086031"
+  },
+  {
+    "id": 140,
+    "searchIndex": "HomeAndKitchen",
+    "keywords": "Wassersprudler, Filter & Kartuschen",
+    "browseNodeId": "10704251"
+  },
+  {
+    "id": 141,
+    "searchIndex": "Lighting",
+    "keywords": "Außenbeleuchtung",
+    "browseNodeId": "293332011"
+  },
+  {
+    "id": 142,
+    "searchIndex": "Lighting",
+    "keywords": "Bad-Beleuchtung",
+    "browseNodeId": "165192011"
+  },
+  {
+    "id": 143,
+    "searchIndex": "Lighting",
+    "keywords": "Innenbeleuchtung",
+    "browseNodeId": "3780981"
+  },
+  {
+    "id": 144,
+    "searchIndex": "Lighting",
+    "keywords": "Leuchtmittel",
+    "browseNodeId": "227261031"
+  },
+  {
+    "id": 145,
+    "searchIndex": "Lighting",
+    "keywords": "Taschenlampen, Stirnlampen & Laternen",
+    "browseNodeId": "2076989031"
+  },
+  {
+    "id": 146,
+    "searchIndex": "Lighting",
+    "keywords": "Weihnachtsbeleuchtung",
+    "browseNodeId": "3884356031"
+  },
+  {
+    "id": 147,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Blasinstrumente",
+    "browseNodeId": "412549031"
+  },
+  {
+    "id": 148,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Bässe & Equipment",
+    "browseNodeId": "412326031"
+  },
+  {
+    "id": 149,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "DJ- & VJ-Equipment",
+    "browseNodeId": "412356031"
+  },
+  {
+    "id": 150,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Gitarren & Equipment",
+    "browseNodeId": "412420031"
+  },
+  {
+    "id": 151,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Karaoke",
+    "browseNodeId": "412468031"
+  },
+  {
+    "id": 152,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Mikrofone",
+    "browseNodeId": "412469031"
+  },
+  {
+    "id": 153,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Musizier-Zubehör",
+    "browseNodeId": "412407031"
+  },
+  {
+    "id": 154,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "PA- & Bühnentechnik",
+    "browseNodeId": "406579031"
+  },
+  {
+    "id": 155,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Piano & Keyboard",
+    "browseNodeId": "406577031"
+  },
+  {
+    "id": 156,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Recording & Computer",
+    "browseNodeId": "412501031"
+  },
+  {
+    "id": 157,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Schlagzeug & Percussion",
+    "browseNodeId": "406578031"
+  },
+  {
+    "id": 158,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Streich- & Zupfinstrumente",
+    "browseNodeId": "412518031"
+  },
+  {
+    "id": 159,
+    "searchIndex": "MusicalInstruments",
+    "keywords": "Synthesizer & Sampler",
+    "browseNodeId": "412542031"
+  },
+  {
+    "id": 160,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Sportelektronik",
+    "browseNodeId": "190534011"
+  },
+  {
+    "id": 161,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "American Football",
+    "browseNodeId": "190416011"
+  },
+  {
+    "id": 162,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Angeln",
+    "browseNodeId": "16435131"
+  },
+  {
+    "id": 163,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Badminton",
+    "browseNodeId": "190423011"
+  },
+  {
+    "id": 164,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Baseball",
+    "browseNodeId": "190417011"
+  },
+  {
+    "id": 165,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Basketball",
+    "browseNodeId": "190418011"
+  },
+  {
+    "id": 166,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Billard",
+    "browseNodeId": "190424011"
+  },
+  {
+    "id": 167,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Bogenschießen & Waffensport",
+    "browseNodeId": "248376011"
+  },
+  {
+    "id": 168,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Bowling & Kegeln",
+    "browseNodeId": "248406011"
+  },
+  {
+    "id": 169,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Boxen",
+    "browseNodeId": "190425011"
+  },
+  {
+    "id": 170,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Camping & Outdoor",
+    "browseNodeId": "16435151"
+  },
+  {
+    "id": 171,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Darts",
+    "browseNodeId": "190426011"
+  },
+  {
+    "id": 172,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Fechten",
+    "browseNodeId": "451767031"
+  },
+  {
+    "id": 173,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Feldhockey",
+    "browseNodeId": "235141011"
+  },
+  {
+    "id": 174,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Fitness",
+    "browseNodeId": "16435171"
+  },
+  {
+    "id": 175,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Fun-Sportarten",
+    "browseNodeId": "190432011"
+  },
+  {
+    "id": 176,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Fußball",
+    "browseNodeId": "16435181"
+  },
+  {
+    "id": 177,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Golf",
+    "browseNodeId": "16435191"
+  },
+  {
+    "id": 178,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Inline-Skates, Rollschuhe, Skateboarding & Scooter",
+    "browseNodeId": "14647308031"
+  },
+  {
+    "id": 179,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Jagd",
+    "browseNodeId": "248474011"
+  },
+  {
+    "id": 180,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Kampfsport",
+    "browseNodeId": "452697031"
+  },
+  {
+    "id": 181,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Klettern",
+    "browseNodeId": "451560031"
+  },
+  {
+    "id": 182,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Padel-Tennis",
+    "browseNodeId": "5144499031"
+  },
+  {
+    "id": 183,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Paintball",
+    "browseNodeId": "451811031"
+  },
+  {
+    "id": 184,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Radsport",
+    "browseNodeId": "16435211"
+  },
+  {
+    "id": 185,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Rollhockey",
+    "browseNodeId": "452159031"
+  },
+  {
+    "id": 186,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Rugby",
+    "browseNodeId": "452168031"
+  },
+  {
+    "id": 187,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Running",
+    "browseNodeId": "16435231"
+  },
+  {
+    "id": 188,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Schiedsrichterausrüstung",
+    "browseNodeId": "190852011"
+  },
+  {
+    "id": 189,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Snooker",
+    "browseNodeId": "460965031"
+  },
+  {
+    "id": 190,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Sportbrillen",
+    "browseNodeId": "4543004031"
+  },
+  {
+    "id": 191,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Sportmedizin",
+    "browseNodeId": "4551500031"
+  },
+  {
+    "id": 192,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Squash",
+    "browseNodeId": "190429011"
+  },
+  {
+    "id": 193,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Tennis",
+    "browseNodeId": "16435271"
+  },
+  {
+    "id": 194,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Tischtennis",
+    "browseNodeId": "190430011"
+  },
+  {
+    "id": 195,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Turnen",
+    "browseNodeId": "451774031"
+  },
+  {
+    "id": 196,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Volleyball",
+    "browseNodeId": "190420011"
+  },
+  {
+    "id": 197,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Wassersport",
+    "browseNodeId": "3959757031"
+  },
+  {
+    "id": 198,
+    "searchIndex": "SportsAndOutdoors",
+    "keywords": "Wintersport",
+    "browseNodeId": "3024257031"
+  },
+  {
+    "id": 199,
+    "searchIndex": "ToolsAndHomeImprovement",
+    "keywords": "Sicherheitstechnik",
+    "browseNodeId": "2077623031"
+  },
+  {
+    "id": 200,
+    "searchIndex": "Watches",
+    "keywords": "Herren",
+    "browseNodeId": "10084739031"
+  },
+  {
+    "id": 201,
+    "searchIndex": "Watches",
+    "keywords": "Damen",
+    "browseNodeId": "10084749031"
+  },
+  {
+    "id": 202,
+    "searchIndex": "Watches",
+    "keywords": "Zubehör",
+    "browseNodeId": "198798031"
   }
 ]
